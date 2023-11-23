@@ -25,7 +25,6 @@ end
 function gutz_optimize(ham; verbose=true)
     verbose && @info "Building optimizer..."
     el = @elapsed go = GutzwillerOptimizer(ham)
-    verbose && @info "Done in $el seconds."
-
-    optimize(go, [0.5]).minimizer[1]
+    verbose && @info "Done in $el seconds. Optimizing..."
+    optimize(go, [0.5])
 end
