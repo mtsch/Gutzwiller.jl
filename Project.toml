@@ -1,0 +1,9 @@
+name = "Gutzwiller"
+uuid = "934a285b-0f55-4204-bc81-2542b947ab7d"
+authors = ["mtsch <matijacufar@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Rimu = "c53c40cc-bd84-11e9-2cf4-a9fde2b9386e"
+VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
