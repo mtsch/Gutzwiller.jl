@@ -26,9 +26,13 @@ function (go::GutzwillerOptimizer)(params)
     return dot(φ, go.hamiltonian, φ, go.working_memory) / norm(φ)^2
 end
 
-function gutz_optimize(ham; verbose=true)
+function gutz_optimize(ham, basis=nothing; verbose=true)
     verbose && @info "Building optimizer..."
-    el = @elapsed go = GutzwillerOptimizer(ham)
+    if isnothing(basis)
+        el = @elapsed go = GutzwillerOptimizer(ham)
+    else
+        el = @elapsed go = GutzwillerOptimizer(ham, basis)
+    end
     verbose && @info "Done in $el seconds. Optimizing..."
     optimize(go, [0.5])
 end
