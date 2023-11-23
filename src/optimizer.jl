@@ -7,6 +7,10 @@ end
 
 function GutzwillerOptimizer(ham)
     basis = build_basis(ham)
+    return GutzwillerOptimizer(ham)
+end
+
+function GutzwillerOptimizer(ham, basis)
     diags = PDVec(zip(basis, map(a -> diagonal_element(ham, a), basis)))
     buffer = copy(diags)
     working_memory = PDWorkingMemory(buffer)

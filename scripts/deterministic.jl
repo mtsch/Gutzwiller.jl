@@ -1,7 +1,5 @@
 using Gutzwiller
 using Rimu
-using DataFrames
-using CairoMakie
 
 function setup_H(m; N=m*m, t=0.1, u_ib=0.0, g=0.0)
     M = m * m
