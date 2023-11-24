@@ -2,12 +2,21 @@ module Gutzwiller
 
 using Rimu
 using VectorInterface
-using Optim
+using Folds
+using ProgressMeter
+
+
+include("deterministic-evaluator.jl")
+export GutzwillerEvaluator
 
 include("metropolis.jl")
-export local_energy, gutzwiller_energy
+export VariationalEnergyAccumulator, VectorAccumulator, metropolis_hastings
 
-include("optimizer.jl")
-export GutzwillerOptimizer, gutz_optimize
+include("qmc-evaluator.jl")
+export GutzwillerQMCEvaluator
+
+
+include("optimization.jl")
+export wip_algo
 
 end

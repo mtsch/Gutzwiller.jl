@@ -1,3 +1,113 @@
+###
+### METROPOLIS-HASTINGS
+###
+function metropolis_sample(H, vec, a_curr, v_curr)
+    neighbours = num_offdiagonals(H, a_curr)
+    a_next, _ = offdiagonals(H, a_curr)[rand(1:neighbours)]
+    invprob_there = neighbours
+    invprob_back = num_offdiagonals(H, a_next)
+    v_next = abs2(vec[a_next])
+
+    acceptance_prob = (v_next * invprob_there) / (v_curr * invprob_back)
+
+    if acceptance_prob > rand()
+        return a_next, v_next, true
+    else
+        return a_curr, v_curr, false
+    end
+end
+
+function metropolis_hastings!(accum, progress, H, vec, warmup, steps)
+    a_curr = starting_address(H)
+    v_curr = abs2(vec[a_curr])
+
+    num_accepted = 0
+    for k in 1:warmup
+        a_curr, v_curr, _ = metropolis_sample(H, vec, a_curr, v_curr)
+        if !isnothing(progress)
+            next!(progress)
+        end
+    end
+    for k in 1:steps
+        a_curr, v_curr, accepted = metropolis_sample(H, vec, a_curr, v_curr)
+        num_accepted += accepted
+
+        # Do stuff here
+        accumulate!(accum, a_curr, accepted)
+        if !isnothing(progress)
+            next!(progress)
+        end
+    end
+    return finalize!(accum, num_accepted / steps)
+end
+
+function metropolis_hastings(
+    ::Type{A}, H, vec;
+    warmup=1e6, steps=1e6, tasks=2 * Tasks.ntasks(), progress=isinteractive(),
+) where {A}
+    if tasks == 1
+        accum = A(H, vec)
+        if progress
+            prog = Progress(warmup + steps; showspeed=true)
+        else
+            prog = nothing
+        end
+        result = metropolis_hastings!(accum, prog, H, vec, Int(warmup), Int(steps))
+        if progress
+            finish!(prog)
+        end
+        return result
+    else
+        results = Vector{result_type(A, H, vec)}(undef, tasks)
+        if progress
+            prog = Progress((warmup + steps) * tasks; showspeed=true)
+        else
+            prog = nothing
+        end
+        Threads.@threads for i in 1:tasks
+            accum = A(H, vec)
+            results[i] = metropolis_hastings!(accum, prog, H, vec, Int(warmup), Int(steps))
+        end
+        if progress
+            finish!(prog)
+        end
+        return merge(results)
+    end
+end
+
+###
+### VECTOR ACCUMULATOR
+###
+struct VectorAccumulator{D<:AbstractDVec}
+    vector::D
+end
+function VectorAccumulator(H::AbstractHamiltonian, _)
+    return VectorAccumulator(DVec{typeof(starting_address(H)), Float64}())
+end
+function result_type(::Type{VectorAccumulator}, H::AbstractHamiltonian, _)
+    return VectorAccumulatorResult{DVec{typeof(starting_address(H)),Float64}}
+end
+function accumulate!(va::VectorAccumulator, addr, _)
+    va.vector[addr] += 1
+end
+function finalize!(va::VectorAccumulator, _)
+    return normalize!(va.vector)
+end
+
+struct VectorAccumulatorResult{D}
+    vector::D
+    acceptance::Float64
+end
+function Base.merge(rs::Vector{VectorAccumulatorResult})
+    return VectorAccumulatorResult(
+        sum(r.vector for r in rs),
+        mean(r.acceptance for r in rs),
+    )
+end
+
+###
+### VARIATIONAL ENERGY
+###
 """
     local_energy(H, vector, addr)
     local_energy(H, vector)
@@ -21,143 +131,47 @@ function local_energy(H, vector)
     return top / sum(abs2, vector)
 end
 
-"""
-    GutzVector{A,H}
-
-Placeholder
-"""
-struct GutzVector{A,H}
-    H::H
-    g::Float64
+struct VariationalEnergyAccumulator{H,V}
+    hamiltonian::H
+    vector::V
+    local_energies::Vector{Float64}
 end
-function GutzVector(H, g)
-    A = typeof(starting_address(H))
-    return GutzVector{A,typeof(H)}(H,g)
+function VariationalEnergyAccumulator(H, v)
+    return VariationalEnergyAccumulator(H, v, Float64[])
 end
-function Base.getindex(gv::GutzVector{A}, addr::A) where {A}
-    exp(-gv.g * diagonal_element(gv.H, addr))
+function result_type(VariationalEnergyAccumulator, _, _)
+    VariationalEnergyResult{Vector{Float64}}
 end
-
-struct MetropolisHastingsResult
-    val::Float64
-    err::Float64
-    accepted::Float64
-    val_replicas::Vector{Vector{Float64}}
-    accepted_replicas::Vector{Float64}
-end
-function Base.show(io::IO, res::MetropolisHastingsResult)
-    print(io, "MetropolisHastingsResult(val=$(res.val), err=$(res.err), accepted=$(res.accepted))")
-end
-
-"""
-    walk(H, vec, warmup, steps, report_every)
-
-Self-contained Metropolis-Hastings random walk. Performs `warmup + steps` steps, but only
-records data after `warmup` steps. Print a report every `report_every` steps.
-"""
-function walk(H, vec, warmup, steps, report_every)
-    a_curr = starting_address(H)
-    v_curr = abs2(vec[a_curr])
-    neighbours = num_offdiagonals(H, a_curr)
-
-    accepted = 0
-    local_energies = Float64[]
-
-    last_accepted = true
-    for k in 1:warmup + steps
-        if report_every > 0 && k % report_every == 0
-            if k > warmup
-                blocking = blocking_analysis(local_energies)
-                μ = blocking.mean
-                σ = blocking.err
-                acceptance = round(100 * accepted / (k - warmup), digits=2)
-                println("step $k: E_v = $μ ± $σ, $acceptance% acceptance")
-            else
-                println("step $k: still warming up...")
-            end
-        end
-
-        a_next, _ = offdiagonals(H, a_curr)[rand(1:neighbours)]
-        invprob_there = neighbours
-        invprob_back = num_offdiagonals(H, a_next)
-        v_next = abs2(vec[a_next])
-
-        acceptance_prob = (v_next * invprob_there) / (v_curr * invprob_back)
-        if acceptance_prob > rand()
-            a_curr = a_next
-            v_curr = v_next
-            neighbours = invprob_back
-            accepted += k > warmup
-            last_accepted = true
-        end
-        if k > warmup
-            if last_accepted
-                push!(local_energies, local_energy(H, vec, a_curr))
-            else
-                # sample is repeated - no need to recompute
-                push!(local_energies, local_energies[end])
-            end
-            last_accepted = false
-        end
-    end
-    return local_energies, accepted / steps
-end
-
-function sequential_walk(H, vec; warmup=1e6, steps=1e6, report_every=steps/10)
-    local_energies, accepted = walk(H, vec, Int(warmup), Int(steps), Int(report_every))
-    blocking = blocking_analysis(local_energies)
-    return MetropolisHastingsResult(
-        blocking.mean, blocking.err, accepted, [local_energies], [accepted],
-    )
-end
-
-function parallel_walk(H, vec; warmup=1e6, steps=1e6, replicas=Threads.nthreads())
-    return parallel_walk(H, vec, Int(warmup), Int(steps), replicas)
-end
-function parallel_walk(H, vec, warmup, steps, replicas)
-    accepted = zeros(replicas)
-    local_energies = [Float64[] for _ in 1:replicas]
-
-    Threads.@threads for i in 1:replicas
-        loc_en, acc = walk(H, vec, warmup, steps, 0)
-        accepted[i] = acc
-        local_energies[i] = loc_en
-    end
-
-    blocks = map(blocking_analysis, local_energies)
-    val = mean(b.mean for b in blocks)
-    err = √mean(abs2, b.err for b in blocks)
-
-    return MetropolisHastingsResult(
-        val,
-        err,
-        mean(accepted),
-        local_energies,
-        accepted,
-    )
-end
-
-"""
-    gutzwiller_energy(H, g; warmup=1e6, steps=1e6, replicas=Threads.nthreads())
-
-Use the Metropolis-Hastings algorithm to compute an estiamte of the energy of the Gutzwiller
-ansatz
-
-```math
-φ_i = e^{-g H_ii}
-```
-
-for a given value of `g`. The algorithm runs for `warmup + steps` steps, and the first
-`warmup` steps are discarded. It runs `replicas` independent runs in parallel.
-"""
-function gutzwiller_energy(H, g; replicas=Threads.nthreads(), report_every=0, kwargs...)
-    gutzy = GutzVector(H, g)
-    if replicas > 1
-        if report_every ≠ 0
-            throw(ArgumentError("Reporting in parallel no bueno"))
-        end
-        return parallel_walk(H, gutzy; replicas, kwargs...)
+function accumulate!(lea::VariationalEnergyAccumulator, addr, accepted)
+    if accepted || length(lea.local_energies) == 0
+        push!(lea.local_energies, local_energy(lea.hamiltonian, lea.vector, addr))
     else
-        return sequential_walk(H, gutzy; report_every, kwargs...)
+        push!(lea.local_energies, lea.local_energies[end])
     end
+end
+function finalize!(lea::VariationalEnergyAccumulator, acceptance)
+    blocking = blocking_analysis(lea.local_energies)
+    return VariationalEnergyResult(
+        blocking.mean, blocking.err, acceptance, lea.local_energies
+    )
+end
+
+struct VariationalEnergyResult{V}
+    mean::Float64
+    err::Float64
+    acceptance::Float64
+    local_energies::V
+end
+function Base.show(io::IO, res::VariationalEnergyResult)
+    μ = lpad(round(res.mean, sigdigits=5), 7)
+    σ = lpad(round(res.err, sigdigits=5), 7)
+    acc = lpad(round(res.acceptance * 100, digits=3), 7)
+    print(io, "$μ ± $σ, $acc% acceptance")
+end
+function Base.merge(rs::Vector{<:VariationalEnergyResult})
+    μ = mean(r.mean for r in rs)
+    σ = √mean(r.err^2 for r in rs)
+    acceptance = mean(r.acceptance for r in rs)
+    local_energies = [r.local_energies for r in rs]
+    return VariationalEnergyResult(μ, σ, acceptance, local_energies)
 end
