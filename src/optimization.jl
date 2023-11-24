@@ -28,7 +28,7 @@ function select_smallest(values::NTuple{3,<:Any})
 
 end
 
-struct WipAlgoResult{T}
+struct GutzOptimizerResult{T}
     minimizer::Float64
     step::Float64
     minimum::T
@@ -37,8 +37,8 @@ struct WipAlgoResult{T}
     evals::Int
     iters::Int
 end
-function Base.show(io::IO, res::WipAlgoResult)
-    println(io, "WipAlgoResult")
+function Base.show(io::IO, res::GutzOptimizerResult)
+    println(io, "GutzOptimizerResult")
     println(io, "  minimizer: ", res.minimizer)
     println(io, "  minimum:   ", res.minimum)
     println(io, "  converged: ", res.converged)
@@ -47,7 +47,7 @@ function Base.show(io::IO, res::WipAlgoResult)
     print(io, "  iters:     ", res.iters)
 end
 
-function wip_algo(f; x0, step, x_tol, maxiter=100, verbose=false)
+function _gutz_optimize(f; x0, step, x_tol, maxiter=100, verbose=false)
     xs = (x0 - step, x0, x0 + step)
     ys = (f(xs[1]), f(xs[2]), f(xs[3]))
     evals = 3
@@ -71,9 +71,6 @@ function wip_algo(f; x0, step, x_tol, maxiter=100, verbose=false)
         end
 
         next_index = select_smallest(ys)
-        #@show xs
-        #@show ys
-        #@show next_index
 
         if next_index == 1
             # Minimum is to the left - move over
@@ -107,18 +104,17 @@ function wip_algo(f; x0, step, x_tol, maxiter=100, verbose=false)
         end
     end
 
-    return WipAlgoResult(x_curr, step, y_curr, converged, reason, evals, iters)
+    return GutzOptimizerResult(x_curr, step, y_curr, converged, reason, evals, iters)
 end
 
-export wip_gutz_optim
-function wip_gutz_optim(
+function gutz_optimize(
     H, g0;
     step=0.4, g_tol=1e-7, maxiter=100, qmc=false, verbose=true,
     kwargs...
 )
 
     if qmc
-        evaluator = GutzwillerQMCEvaluator(H; kwargs...)
+        evaluator = GutzwillerQMCEvaluator(H; progress=false, kwargs...)
     else
         verbose && println(stderr, "Building evaluator")
         el = @elapsed evaluator = GutzwillerEvaluator(H)
@@ -128,7 +124,7 @@ function wip_gutz_optim(
     end
     verbose && println(stderr, evaluator)
 
-    res = wip_algo(evaluator; x0=g0, step, x_tol=g_tol, maxiter, verbose)
+    res = _gutz_optimize(evaluator; x0=g0, step, x_tol=g_tol, maxiter, verbose)
     if res.converged
         println(
             stderr,

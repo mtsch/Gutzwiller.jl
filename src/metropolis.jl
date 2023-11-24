@@ -18,6 +18,7 @@ function metropolis_sample(H, vec, a_curr, v_curr)
 end
 
 function metropolis_hastings!(accum, progress, H, vec, warmup, steps)
+    t0 = time()
     a_curr = starting_address(H)
     v_curr = abs2(vec[a_curr])
 
@@ -38,7 +39,8 @@ function metropolis_hastings!(accum, progress, H, vec, warmup, steps)
             next!(progress)
         end
     end
-    return finalize!(accum, num_accepted / steps)
+    elapsed = time() - t0
+    return finalize!(accum, num_accepted / steps, warmup, steps, elapsed)
 end
 
 function metropolis_hastings(
@@ -90,19 +92,15 @@ end
 function accumulate!(va::VectorAccumulator, addr, _)
     va.vector[addr] += 1
 end
-function finalize!(va::VectorAccumulator, _)
-    return normalize!(va.vector)
+function finalize!(va::VectorAccumulator, args...)
+    return VectorAccumulatorResult(normalize!(va.vector))
 end
 
 struct VectorAccumulatorResult{D}
     vector::D
-    acceptance::Float64
 end
 function Base.merge(rs::Vector{VectorAccumulatorResult})
-    return VectorAccumulatorResult(
-        sum(r.vector for r in rs),
-        mean(r.acceptance for r in rs),
-    )
+    return VectorAccumulatorResult(sum(r.vector for r in rs))
 end
 
 ###
@@ -149,18 +147,22 @@ function accumulate!(lea::VariationalEnergyAccumulator, addr, accepted)
         push!(lea.local_energies, lea.local_energies[end])
     end
 end
-function finalize!(lea::VariationalEnergyAccumulator, acceptance)
+function finalize!(lea::VariationalEnergyAccumulator, acceptance, warmup, steps, elapsed)
     blocking = blocking_analysis(lea.local_energies)
     return VariationalEnergyResult(
-        blocking.mean, blocking.err, acceptance, lea.local_energies
+        blocking.mean, blocking.err, acceptance, lea.local_energies, warmup, steps, warmup+steps, elapsed
     )
 end
 
-struct VariationalEnergyResult{V}
+struct VariationalEnergyResult{V,T}
     mean::Float64
     err::Float64
     acceptance::Float64
     local_energies::V
+    warmup::Int
+    steps::Int
+    total::Int
+    times::T
 end
 function Base.show(io::IO, res::VariationalEnergyResult)
     μ = lpad(round(res.mean, sigdigits=5), 7)
@@ -173,5 +175,11 @@ function Base.merge(rs::Vector{<:VariationalEnergyResult})
     σ = √mean(r.err^2 for r in rs)
     acceptance = mean(r.acceptance for r in rs)
     local_energies = [r.local_energies for r in rs]
-    return VariationalEnergyResult(μ, σ, acceptance, local_energies)
+    times = [r.times for r in rs]
+    warmup = rs[1].warmup
+    steps = rs[1].steps
+    total = (warmup + steps) * length(rs)
+    return VariationalEnergyResult(
+        μ, σ, acceptance, local_energies, warmup, steps, total, times
+    )
 end

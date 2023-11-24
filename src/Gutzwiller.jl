@@ -5,7 +5,6 @@ using VectorInterface
 using Folds
 using ProgressMeter
 
-
 include("deterministic-evaluator.jl")
 export GutzwillerEvaluator
 
@@ -17,6 +16,6 @@ export GutzwillerQMCEvaluator
 
 
 include("optimization.jl")
-export wip_algo
+export gutz_optimize
 
 end

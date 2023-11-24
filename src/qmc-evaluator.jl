@@ -37,17 +37,21 @@ struct GutzwillerQMCEvaluator{H}
     warmup::Int
     steps::Int
     tasks::Int
+    progress::Bool
 end
 
-function GutzwillerQMCEvaluator(H; warmup=1e6, steps=1e6, tasks=2Threads.nthreads())
-    return GutzwillerQMCEvaluator(H, Int(warmup), Int(steps), Int(tasks))
+function GutzwillerQMCEvaluator(
+    H; warmup=1e6, steps=1e6, tasks=2Threads.nthreads(), progress=true
+)
+    return GutzwillerQMCEvaluator(H, Int(warmup), Int(steps), Int(tasks), progress)
 end
 function Base.show(io::IO, ge::GutzwillerQMCEvaluator)
     print(io, "GutzwillerQMCEvaluator(")
     print(io, ge.hamiltonian)
-    print(io, ", warmup=", ge.warmup)
-    print(io, ", steps=", ge.steps)
-    print(io, ", tasks=", ge.tasks)
+    print(io, ", warmup   = ", ge.warmup)
+    print(io, ", steps    = ", ge.steps)
+    print(io, ", tasks    = ", ge.tasks)
+    print(io, ", progress = ", ge.progress)
     print(io, ")")
 end
 
@@ -56,6 +60,7 @@ function (ge::GutzwillerQMCEvaluator)(input)
     H = ge.hamiltonian
     return metropolis_hastings(
         VariationalEnergyAccumulator,
-        H, GutzVector(H, g); warmup=ge.warmup, steps=ge.steps, tasks=ge.tasks,
+        H, GutzVector(H, g);
+        warmup=ge.warmup, steps=ge.steps, tasks=ge.tasks, progress=ge.progress,
     )
 end
