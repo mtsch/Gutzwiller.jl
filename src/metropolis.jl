@@ -34,7 +34,7 @@ function metropolis_hastings!(accum, progress, H, vec, warmup, steps)
         num_accepted += accepted
 
         # Do stuff here
-        accumulate!(accum, a_curr, accepted)
+        accumulate!(accum, a_curr, accepted, k)
         if !isnothing(progress)
             next!(progress)
         end
@@ -89,7 +89,7 @@ end
 function result_type(::Type{VectorAccumulator}, H::AbstractHamiltonian, _)
     return VectorAccumulatorResult{DVec{typeof(starting_address(H)),Float64}}
 end
-function accumulate!(va::VectorAccumulator, addr, _)
+function accumulate!(va::VectorAccumulator, addr, args...)
     va.vector[addr] += 1
 end
 function finalize!(va::VectorAccumulator, args...)
@@ -140,7 +140,7 @@ end
 function result_type(VariationalEnergyAccumulator, _, _)
     VariationalEnergyResult{Vector{Float64}}
 end
-function accumulate!(lea::VariationalEnergyAccumulator, addr, accepted)
+function accumulate!(lea::VariationalEnergyAccumulator, addr, accepted, _)
     if accepted || length(lea.local_energies) == 0
         push!(lea.local_energies, local_energy(lea.hamiltonian, lea.vector, addr))
     else

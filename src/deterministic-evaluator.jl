@@ -40,3 +40,22 @@ function (ge::GutzwillerEvaluator)(params)
     end
     return t / b
 end
+
+function variance(ge::GutzwillerEvaluator, g)
+    μ = ge(g)
+    t, b = Folds.mapreduce(add, ge.basis; init=(0.0, 0.0)) do k
+        H = ge.hamiltonian
+        diag = diagonal_element(H, k)
+        k_val = exp(-diag * g)
+        k_val_sq = abs2(k_val)
+
+        bot = k_val_sq
+        top = k_val_sq * diag
+        for (l, melem) in offdiagonals(H, k)
+            l_val = exp(-diagonal_element(H, l) * g)
+            top += l_val' * melem * k_val
+        end
+        (top - μ)^2, bot
+    end
+    return t / b
+end
