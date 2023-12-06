@@ -25,8 +25,18 @@ function GutzwillerQMCEvaluator2{H}
     substeps::Int
 end
 
+"""
+
+
+"""
 function gutzwiller2(
-    H, g; walkers_per_thread=2, blocks=100, steps=1e5, substeps=1, warmup=1e6, verbose=true
+    H, g;
+    walkers_per_thread=Threads.nthreads() == 1 ? 1 : 2,
+    blocks=100,
+    steps=1e5,
+    substeps=1,
+    warmup=1e6,
+    verbose=true,
 )
     walkers = walkers_per_thread * Threads.nthreads()
     vec_samples = [typeof(starting_address(H))[] for _ in 1:walkers]

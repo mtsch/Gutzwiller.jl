@@ -1,12 +1,109 @@
+"""
+    abstract type AbstractVQMCCollector
+
+A supertype for structs to be passed to `metropolis_sample`. Subtypes of this type must
+define the following interface:
+
+* [`sample_type`](@ref)
+* [`process_address`](@ref)
+* [`print_stats`](@ref)
+"""
+abstract type AbstractVQMCCollector end
+
+"""
+    sample_type(::AbstractVQMCCollector, ansatz)
+
+Return the result type corresponding to the collector.
+
+See [`AbstractVQMCCollector`](@ref).
+"""
+sample_type
+
+
+"""
+    process_address(collector::AbstractVQMCCollector, ansatz, addr)
+
+Do something with an address before storing it. This function should return a value of type
+[`sample_type`](@ref)`(collector, ansatz)`.
+
+See [`AbstractVQMCCollector`](@ref).
+"""
+process_address
+
+
+"""
+    print_stats(::IO, ::AbstractVQMCCollector, samples, accepted, elapsed)
+
+Print stats that are to be shown at the end of each VQMC epoch. `samples` contain the
+samples collected so far, `accepted` the numbers of acceptes samples, and `elapsed` is the
+time spent so far.
+
+Note that the number of samples collected, time spent and acceptance are printed by
+[`metropolis_hasings`](@ref) by default.
+"""
+print_stats
+
+"""
+    AddressCollector() <: AbstractVQMCCollector
+
+The address collector simply collects the addresses to vectors without processing them in
+any way.
+
+See [`AbstractVQMCCollector`](@ref), [`LocalEnergyCollector`](@ref).
+"""
+struct AddressCollector <: AbstractVQMCCollector end
+
+sample_type(::AddressCollector, ansatz) = keytype(ansatz)
+process_address(::AddressCollector, _, addr) = addr
+function print_stats(io, ::AddressCollector, samples, accepted, elapsed)
+    println(io)
+end
+
+"""
+    LocalEnergyCollector(H) <: AbstractVQMCCollector
+
+Collects local energies for each sample. At reporting intervals, the current value of
+variational energy is shown.
+
+See [`AbstractVQMCCollector`](@ref), [`LocalEnergyCollector`](@ref).
+"""
+struct LocalEnergyCollector{H} <: AbstractVQMCCollector
+    hamiltonian::H
+end
+sample_type(::LocalEnergyCollector, _) = Float64
+function process_address(lec::LocalEnergyCollector, ansatz, addr)
+    return local_energy(lec.hamiltonian, ansatz, addr)
+end
+function print_stats(io, ::LocalEnergyCollector, samples, accepted, elapsed)
+    μ_sum, σ_sq_sum = Folds.mapreduce(add, samples; init=(0.0, 0.0)) do sample
+        b = blocking_analysis(sample)
+        b.mean, b.err^2
+    end
+    μ = round(μ_sum / length(samples); sigdigits=4)
+    σ = round(√(σ_sq_sum / length(samples)); sigdigits=4)
+    println(io, "E_v = $μ±$σ")
+end
+
 ###
 ### METROPOLIS-HASTINGS
 ###
-function metropolis_sample(H, vec, a_curr, v_curr)
-    neighbours = num_offdiagonals(H, a_curr)
-    a_next, _ = offdiagonals(H, a_curr)[rand(1:neighbours)]
+"""
+    metropolis_sample(sampler, ansatz, a_curr, v_curr) -> a_next, v_next, accepted
+
+Sample a new address from `ansatz`, treating the aboslute square of the `ansatz` as a
+probability density function. The `sample` is used to select a new candidate address,
+`a_curr` is the previous address and `v_curr` is the absolute square of the ansatz evaluated
+at `a_curr`, i.e. `v_curr = abs2(ansatz[a_curr])`.
+
+Returns new address, new aboslute squared valuem and a boolean signaling whether the sample
+was accepted or not.
+"""
+function metropolis_sample(sampler, ansatz, a_curr, v_curr)
+    neighbours = num_offdiagonals(sampler, a_curr)
+    a_next, _ = offdiagonals(sampler, a_curr)[rand(1:neighbours)]
     invprob_there = neighbours
-    invprob_back = num_offdiagonals(H, a_next)
-    v_next = abs2(vec[a_next])
+    invprob_back = num_offdiagonals(sampler, a_next)
+    v_next = abs2(ansatz[a_next])
 
     acceptance_prob = (v_next * invprob_there) / (v_curr * invprob_back)
 
@@ -17,169 +114,206 @@ function metropolis_sample(H, vec, a_curr, v_curr)
     end
 end
 
-function metropolis_hastings!(accum, progress, H, vec, warmup, steps)
-    t0 = time()
-    a_curr = starting_address(H)
-    v_curr = abs2(vec[a_curr])
+"""
+    metropolis_hastings!(collector, accum, address, sampler, ansatz, steps, warmup)
+    metropolis_hastings!(collector, accums, addresses, accepted, sampler, ansatz, steps, warmup)
+
+Using the Metropolis-Hastings algorithm, sample addresses from `ansatz`, process them
+according to the `collector` (see [`AbstractVQMCCollector`](@ref)), and store the results
+into `accum`. The first form is the sequential algorithm, while the second runs several runs
+in parallel.
+
+If warmup is set to `true`, no data is stored.
+
+See [`metropolis_hastings`](@ref) for more information.
+"""
+function metropolis_hastings!(
+    collector, accum::Union{Vector,Nothing}, a_curr, sampler, ansatz, steps, warmup
+)
+    if !warmup
+        offset = length(accum)
+        resize!(accum, length(accum) + steps)
+        res_prev = process_address(collector, ansatz, a_curr)
+    end
+    v_curr = abs2(ansatz[a_curr])
+
 
     num_accepted = 0
-    for k in 1:warmup
-        a_curr, v_curr, _ = metropolis_sample(H, vec, a_curr, v_curr)
-        if !isnothing(progress)
-            next!(progress)
-        end
-    end
     for k in 1:steps
-        a_curr, v_curr, accepted = metropolis_sample(H, vec, a_curr, v_curr)
+        a_curr, v_curr, accepted = metropolis_sample(sampler, ansatz, a_curr, v_curr)
         num_accepted += accepted
 
-        # Do stuff here
-        accumulate!(accum, a_curr, accepted, k)
-        if !isnothing(progress)
-            next!(progress)
+        if !warmup
+            if accepted
+                res_prev = process_address(collector, ansatz, a_curr)
+            end
+            accum[k + offset] = res_prev
         end
     end
-    elapsed = time() - t0
-    return finalize!(accum, num_accepted / steps, warmup, steps, elapsed)
+    return a_curr, num_accepted
 end
 
+function metropolis_hastings!(
+    collector, accums, addrs, accepted, sampler, ansatz, steps, warmup
+)
+    Threads.@threads for i in 1:length(addrs)
+        addr, acc = metropolis_hastings!(
+            collector, accums[i], addrs[i], sampler, ansatz, steps, warmup
+        )
+        addrs[i] = addr
+        if !warmup
+            accepted[i] += acc
+        end
+    end
+    return nothing
+end
+
+"""
+    MetropolisResult{A,T}
+
+Holds the results of a variational quantum Monte Carlo computation.
+
+# Fileds
+* `samples`: the samples collected
+* `addresses`: the last addresses encountered. Can be used to continue a computation.
+* `accepted`: the total number of accepted spawns.
+* `elapsed`: the total time elapsed.
+"""
+mutable struct MetropolisResult{T,A}
+    samples::Vector{Vector{T}}
+    addresses::Vector{A}
+    accepted::Vector{Int}
+    elapsed::Float64
+end
+function Base.show(io::IO, res::MetropolisResult{T}) where {T}
+    print(io, "MetropolisResult{$T} with $(sum(length, res.samples)) samples")
+end
+function collect_to_vec!(dv, res::MetropolisResult)
+    for k in Iterators.flatten(res.samples)
+        dv[k] += 1
+    end
+    return dv
+end
+
+function Rimu.DVec(res::MetropolisResult{A,A}; kwargs...) where {A}
+    collect_to_vec!(DVec{A,Float64}(; kwargs...), res)
+end
+function Rimu.PDVec(res::MetropolisResult{A,A}; kwargs...) where {A}
+    collect_to_vec!(PDVec{A,Float64}(; kwargs...), res)
+end
+
+"""
+    metropolis_hastings(collector, sampler, ansatz; kwargs...)
+
+Returns [`MetropolisResult`](@ref).
+
+# Interfaces
+
+* The `collector` must implement the [`AbstractVQMCCollector`](@ref) interface.
+
+* The `sampler` must implement `offdiagonals` and `num_offdiagonals`.
+
+* The `ansatz` must implement `Base.getindex` and `Base.keytype` and must be indexable with
+  addresses the sampler supports.
+
+# Keyword arguments
+
+* `samples = 1e7`: the total number of samples to collect. The actual number of samples will
+  be rounded to fit neatly into `walkers` and `epochs`.
+
+* `walkers_per_thread = 2`: number of walkers to use per thread. Is set to 1 if threading is
+  unavailable.
+
+* `walkers = walkers_per_thread * Threads.nthreads()`: the total number of walkers to use.
+
+* `epochs = 10`: the number of epochs. If verbose is set to true, statistics are printed
+  after each epoch.
+
+* `steps = round(Int, samples / walkers / epochs)`: number of steps per walker per epoch.
+
+* `warmup = 1e6`: the number of steps to perform at the beginning (without collecting
+  statistics).
+
+* `verbose = true`: if true, print statistic after each epoch.
+
+* `continue_from`: optional [`MetropolisResult`](@ref). If given, the computation will be
+  continued from that result.
+
+"""
 function metropolis_hastings(
-    ::Type{A}, H, vec;
-    warmup=1e6, steps=1e6, tasks=2 * Tasks.ntasks(), progress=isinteractive(),
-) where {A}
-    if tasks == 1
-        accum = A(H, vec)
-        if progress
-            prog = Progress(warmup + steps; showspeed=true)
-        else
-            prog = nothing
-        end
-        result = metropolis_hastings!(accum, prog, H, vec, Int(warmup), Int(steps))
-        if progress
-            finish!(prog)
-        end
-        return result
+    collector::AbstractVQMCCollector, sampler, ansatz;
+    samples=1e7,
+    walkers_per_thread=Threads.nthreads() == 1 ? 1 : 2,
+    walkers=walkers_per_thread * Threads.nthreads(),
+    epochs=10,
+    steps=round(Int, samples / walkers / epochs),
+    warmup=1e6,
+    verbose=true,
+    continue_from=nothing,
+)
+    start_time = time()
+
+    if isnothing(continue_from)
+        addresses = [starting_address(sampler) for _ in 1:walkers]
+        results = [sample_type(collector, ansatz)[] for _ in 1:walkers]
+        accepted = zeros(Int, walkers)
     else
-        results = Vector{result_type(A, H, vec)}(undef, tasks)
-        if progress
-            prog = Progress((warmup + steps) * tasks; showspeed=true)
-        else
-            prog = nothing
-        end
-        Threads.@threads for i in 1:tasks
-            accum = A(H, vec)
-            results[i] = metropolis_hastings!(accum, prog, H, vec, Int(warmup), Int(steps))
-        end
-        if progress
-            finish!(prog)
-        end
-        return merge(results)
+        addresses = continue_from.addresses
+        results = continue_from.samples
+        accepted = continue_from.accepted
     end
-end
 
-###
-### VECTOR ACCUMULATOR
-###
-struct VectorAccumulator{D<:AbstractDVec}
-    vector::D
-end
-function VectorAccumulator(H::AbstractHamiltonian, _)
-    return VectorAccumulator(DVec{typeof(starting_address(H)), Float64}())
-end
-function result_type(::Type{VectorAccumulator}, H::AbstractHamiltonian, _)
-    return VectorAccumulatorResult{DVec{typeof(starting_address(H)),Float64}}
-end
-function accumulate!(va::VectorAccumulator, addr, args...)
-    va.vector[addr] += 1
-end
-function finalize!(va::VectorAccumulator, args...)
-    return VectorAccumulatorResult(normalize!(va.vector))
-end
+    # warmup
+    metropolis_hastings!(collector, results, addresses, accepted, sampler, ansatz, Int(warmup), true)
 
-struct VectorAccumulatorResult{D}
-    vector::D
-end
-function Base.merge(rs::Vector{VectorAccumulatorResult})
-    return VectorAccumulatorResult(sum(r.vector for r in rs))
-end
+    # measure
+    for epoch in 1:epochs
+        metropolis_hastings!(collector, results, addresses, accepted, sampler, ansatz, steps, false)
+        if verbose
+            elapsed = time() - start_time
+            N = epoch * steps * walkers
+            acceptance = round(sum(accepted) / N * 100, digits=3)
+            rate = round(N / elapsed, sigdigits=4)
 
-###
-### VARIATIONAL ENERGY
-###
-"""
-    local_energy(H, vector, addr)
-    local_energy(H, vector)
-
-Compute the local energy of address `addr` in `vector` with respect to `H`. If `addr` is not
-given, compute the local energy across the whole vector.
-"""
-function local_energy(H, vector, addr1)
-    bot = vector[addr1]
-    top = sum(offdiagonals(H, addr1)) do (addr2, melem)
-        melem * vector[addr2]
+            print(stderr, "Epoch ", lpad(epoch, length(string(epochs))), "/", epochs, ": ")
+            print(stderr, float(N), " samples,")
+            print(stderr, " $rate steps/s, acceptance = $acceptance%, ")
+            print_stats(stderr, collector, results, accepted, elapsed)
+        end
     end
-    top += diagonal_element(H, addr1) * bot
-    return top / bot
-end
 
-function local_energy(H, vector)
-    top = sum(pairs(vector)) do (k, v)
-        local_energy(H, vector, k) * v^2
+    elapsed = time() - start_time
+    if verbose
+        print(stderr, "DONE in ")
+        time_format(stderr, elapsed)
+        println(stderr)
     end
-    return top / sum(abs2, vector)
+    if !isnothing(continue_from)
+        elapsed += continue_from.elapsed
+    end
+    return MetropolisResult(results, addresses, accepted, elapsed)
 end
 
-struct VariationalEnergyAccumulator{H,V}
+export MHVQMCGutzOptimizer
+struct MHVQMCGutzOptimizer{H}
     hamiltonian::H
-    vector::V
-    local_energies::Vector{Float64}
-end
-function VariationalEnergyAccumulator(H, v)
-    return VariationalEnergyAccumulator(H, v, Float64[])
-end
-function result_type(VariationalEnergyAccumulator, _, _)
-    VariationalEnergyResult{Vector{Float64}}
-end
-function accumulate!(lea::VariationalEnergyAccumulator, addr, accepted, _)
-    if accepted || length(lea.local_energies) == 0
-        push!(lea.local_energies, local_energy(lea.hamiltonian, lea.vector, addr))
-    else
-        push!(lea.local_energies, lea.local_energies[end])
-    end
-end
-function finalize!(lea::VariationalEnergyAccumulator, acceptance, warmup, steps, elapsed)
-    blocking = blocking_analysis(lea.local_energies)
-    return VariationalEnergyResult(
-        blocking.mean, blocking.err, acceptance, lea.local_energies, warmup, steps, warmup+steps, elapsed
-    )
+    steps::Int
+    walkers::Int
 end
 
-struct VariationalEnergyResult{V,T}
-    mean::Float64
-    err::Float64
-    acceptance::Float64
-    local_energies::V
-    warmup::Int
-    steps::Int
-    total::Int
-    times::T
+function MHVQMCGutzOptimizer(ham; steps=1e6, walkers=Threads.nthreads())
+    return MHVQMCGutzOptimizer(ham, Int(steps), walkers)
 end
-function Base.show(io::IO, res::VariationalEnergyResult)
-    μ = lpad(round(res.mean, sigdigits=5), 7)
-    σ = lpad(round(res.err, sigdigits=5), 7)
-    acc = lpad(round(res.acceptance * 100, digits=3), 7)
-    print(io, "$μ ± $σ, $acc% acceptance")
+function Base.show(io::IO, o::MHVQMCGutzOptimizer)
+    print(io, "MHVQMCGutzOptimizer(", o.hamiltonian, "; ", " steps = ", o.steps, ")")
 end
-function Base.merge(rs::Vector{<:VariationalEnergyResult})
-    μ = mean(r.mean for r in rs)
-    σ = √mean(r.err^2 for r in rs)
-    acceptance = mean(r.acceptance for r in rs)
-    local_energies = [r.local_energies for r in rs]
-    times = [r.times for r in rs]
-    warmup = rs[1].warmup
-    steps = rs[1].steps
-    total = (warmup + steps) * length(rs)
-    return VariationalEnergyResult(
-        μ, σ, acceptance, local_energies, warmup, steps, total, times
-    )
+
+function (o::MHVQMCGutzOptimizer)(params)
+    g = params[1]
+    ham = o.hamiltonian
+    collector = LocalEnergyCollector(ham)
+
+    res = metropolis_hastings(collector, ham, GutzwillerAnsatz(ham, g); steps=o.steps, walkers=o.walkers, verbose=false, epochs=1)
+
+    return mean(mean(s) for s in res.samples)
 end
