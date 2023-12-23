@@ -7,22 +7,29 @@ Contains all information needed to perform continuous time variational quantum M
 
 See also: [`kinetic_vqmc!`](@ref), [`kinetic_vqmc`](@ref).
 """
-mutable struct KineticVQMCWalkerState{A,T<:Real,H,V}
+mutable struct KineticVQMCWalkerState{A,T<:Real,H,N,V<:AbstractAnsatz{A,T,N}}
     hamiltonian::H
     ansatz::V
+    params::SVector{N,T}
     curr_address::A
+    addresses::Vector{A}
     residence_times::Vector{T}
     local_energies::Vector{T}
-    addresses::Vector{A}
+    grad_ratios::Vector{SVector{N,T}}
     prob_buffer::Vector{T}
 end
-function KineticVQMCWalkerState(hamiltonian::H, ansatz::V) where {H,V}
-    A = keytype(ansatz)
-    T = promote_type(valtype(ansatz), eltype(hamiltonian))
-    return KineticVQMCWalkerState{A,T,H,V}(
-        hamiltonian, ansatz, starting_address(hamiltonian), T[], T[], A[], T[],
+function KineticVQMCWalkerState(
+    hamiltonian::H, ansatz::V, params
+) where {H,A,T,N,V<:AbstractAnsatz{A,T,N}}
+    return KineticVQMCWalkerState{A,T,H,N,V}(
+        hamiltonian, ansatz, SVector{N,T}(params),
+        starting_address(hamiltonian), A[], T[], T[], T[], T[],
     )
 end
+
+Base.keytype(::KineticVQMCWalkerState{A}) where {A} = A
+Base.valtype(::KineticVQMCWalkerState{<:Any,T}) where {T} = T
+
 function Base.empty!(st::KineticVQMCWalkerState)
     empty!(st.residence_times)
     empty!(st.local_energies)
@@ -33,6 +40,15 @@ end
 function Base.length(st::KineticVQMCWalkerState)
     return length(st.addresses)
 end
+function val_and_grad(res::KineticVQMCWalkerState)
+    weights = FrequencyWeights(res.residence_times)
+    val = mean(res.local_energies, weights)
+    grads = res.grad_ratios .* (res.local_energies .- val)
+    grad = 2 * mean(grads, weights)
+
+    return val, grad
+end
+
 
 """
     KineticVQMCResult
@@ -55,9 +71,12 @@ function Base.show(io::IO, res::KineticVQMCResult)
     σ = round(est.err; sigdigits=5)
     println(io, "KineticVQMCResult")
     println(io, "  walkers:      ", length(res.states))
-    println(io, "  samples:      ", length(res.states[1].residence_times))
+    println(io, "  samples:      ", sum(length, res.states))
     print(io, "  local energy: ", μ, " ± ", σ)
 end
+
+Base.keytype(::KineticVQMCResult{A}) where {A} = A
+Base.valtype(::KineticVQMCResult{<:Any,T}) where {T} = T
 
 Tables.istable(::Type{<:KineticVQMCResult}) = true
 Tables.rowaccess(::Type{<:KineticVQMCResult}) = true
@@ -105,6 +124,20 @@ end
 ###
 ### Blocking utils
 ###
+function val_and_grad(res::KineticVQMCResult{<:Any,T}) where {T}
+    vals = zero(T)
+    grads = zero(eltype(res.states[1].grad_ratios))
+    walkers = length(res.states)
+
+    for w in 1:walkers
+        v, g = val_and_grad(res.states[w])
+        vals += v
+        grads += g
+    end
+
+    return vals / walkers, grads ./ walkers
+end
+
 """
     resample(residence_times, values; len=length(values))
 

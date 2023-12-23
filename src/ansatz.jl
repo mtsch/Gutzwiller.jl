@@ -1,7 +1,8 @@
 """
-    abstract type AbstractAnsatz{K,V}
+    abstract type AbstractAnsatz{K,V,N}
 
-An ansatz behaves similar to an [`AbstractDVec`](@ref) with `keytype` `K` and `valtype` `V`.
+An ansatz behaves similar to an [`AbstractDVec`](@ref) with `keytype` `K` and `valtype` `V`
+with `N` parameters.
 
 It must provide the following:
 
@@ -9,7 +10,7 @@ It must provide the following:
 * `set_params(ansatz, params::Vector{T})`: Change the parameters in the ansatz.
 * [`build_basis`](@ref): for collecting the vector to `DVec/PDVec` (optional).
 """
-abstract type AbstractAnsatz{K,V} end
+abstract type AbstractAnsatz{K,V,N} end
 
 Base.keytype(::AbstractAnsatz{K}) where {K} = K
 Base.valtype(::AbstractAnsatz{<:Any,V}) where {V} = V
@@ -31,25 +32,24 @@ function Rimu.PDVec(ans::AbstractAnsatz{K,V}; kwargs...) where {K,V}
 end
 
 """
-    set_params(::AbstractAnsatz, params::Vector)
+    val_and_grad(::AbstractAnsatz, addr, params)
 
-Return new ansatz of the same type with new parameters. Used in optimization functions.
+Return ansatz value at `addr` and its gradient wrt `params`.
 """
-set_params
+val_and_grad
 
 """
     GutzwillerAnsatz{A,T}
 
 Placeholder TODO: make a proper DVec
 """
-struct GutzwillerAnsatz{A,T<:Real,H} <: AbstractAnsatz{A,T}
+struct GutzwillerAnsatz{A,T<:Real,H} <: AbstractAnsatz{A,T,1}
     hamiltonian::H
-    g::T
 end
-function GutzwillerAnsatz(hamiltonian, g)
+function GutzwillerAnsatz(hamiltonian)
     A = typeof(starting_address(hamiltonian))
-    T = promote_type(eltype(hamiltonian), typeof(g))
-    return GutzwillerAnsatz{A,T,typeof(hamiltonian)}(hamiltonian, T(g))
+    T = eltype(hamiltonian)
+    return GutzwillerAnsatz{A,T,typeof(hamiltonian)}(hamiltonian)
 end
 
 function Base.getindex(gv::GutzwillerAnsatz{A}, addr::A) where {A}
@@ -57,7 +57,28 @@ function Base.getindex(gv::GutzwillerAnsatz{A}, addr::A) where {A}
 end
 Rimu.build_basis(gv::GutzwillerAnsatz) = build_basis(gv.hamiltonian)
 
-function set_params(gv::GutzwillerAnsatz, params)
+function val_and_grad(gv::GutzwillerAnsatz, addr, params)
     g = only(params)
-    return GutzwillerAnsatz(gv.hamiltonian, g)
+    diag = diagonal_element(gv.hamiltonian, addr)
+
+    val = exp(-g * diag)
+    der = -diag * val
+
+    return val, SVector(der)
 end
+function (gv::GutzwillerAnsatz)(addr, params)
+    return exp(-only(params) * diagonal_element(gv.hamiltonian, addr))
+end
+
+"""
+    VectorAnsatz(vector::AbstractDVec) <: AbstractAnsatz
+
+Use `vector` as 0-parameter ansatz.
+"""
+struct VectorAnsatz{A,T,D<:AbstractDVec{A,T}} <: AbstractAnsatz{A,T,0}
+    vector::D
+end
+function val_and_grad(va::VectorAnsatz, addr, ::SVector{0})
+    return va.vector[add], SVector{0,valtype(va)}()
+end
+(va::VectorAnsatz)(addr, ::SVector{0}) = va.vector[addr]

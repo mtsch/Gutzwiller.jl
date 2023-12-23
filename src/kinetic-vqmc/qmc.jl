@@ -11,24 +11,23 @@ The algorithm for sampling is taken from [1].
 
 [1]: https://pubs.acs.org/doi/epdf/10.1021/acs.jctc.8b00780
 """
-function kinetic_sample!(prob_buffer, hamiltonian, ansatz, addr1)
+function kinetic_sample!(prob_buffer, hamiltonian, ansatz, params, addr1)
     offdiags = offdiagonals(hamiltonian, addr1)
 
     resize!(prob_buffer, length(offdiags))
 
-    val1 = ansatz[addr1]
+    val1, grad1 = val_and_grad(ansatz, addr1, params)
     local_energy_num = diagonal_element(hamiltonian, addr1) * val1
     residence_time_denom = 0.0
 
     for (i, (addr2, melem)) in enumerate(offdiags)
-        val2 = ansatz[addr2]
+        val2, _ = val_and_grad(ansatz, addr2, params)
         residence_time_denom += abs(val2)
         local_energy_num += melem * val2
 
 
         prob_buffer[i] = residence_time_denom
     end
-    # TODO: grad_ratio = ∂ansatz[addr]/∂param
 
     residence_time = abs(val1) / residence_time_denom
     local_energy = local_energy_num / val1
@@ -36,7 +35,7 @@ function kinetic_sample!(prob_buffer, hamiltonian, ansatz, addr1)
     chosen = pick_random_from_cumsum(prob_buffer)
     new_addr, _ = offdiags[chosen]
 
-    return new_addr, residence_time, local_energy
+    return new_addr, residence_time, local_energy, grad1
 end
 
 """
@@ -68,24 +67,24 @@ Returns its input.
 """
 function kinetic_vqmc!(st::KineticVQMCWalkerState; steps=length(st))
     curr_addr = st.curr_address
-    @unpack (
-        hamiltonian, ansatz, residence_times, local_energies, addresses, prob_buffer
-    ) = st
+    @unpack (residence_times, local_energies, grad_ratios, addresses, prob_buffer) = st
 
     first_step = length(residence_times) + 1
     last_step = length(residence_times) + Int(steps)
 
+    resize!(addresses, last_step)
     resize!(residence_times, last_step)
     resize!(local_energies, last_step)
-    resize!(addresses, last_step)
+    resize!(grad_ratios, last_step)
 
     for k in first_step:last_step
-        next_addr, residence_time, local_energy = kinetic_sample!(
-            prob_buffer, hamiltonian, ansatz, curr_addr
+        next_addr, residence_time, local_energy, grad = kinetic_sample!(
+            prob_buffer, st.hamiltonian, st.ansatz, st.params, curr_addr
         )
+        addresses[k] = curr_addr
         residence_times[k] = residence_time
         local_energies[k] = local_energy
-        addresses[k] = curr_addr
+        grad_ratios[k] = grad
         curr_addr = next_addr # local energy was calculated for the previous address.
     end
     st.curr_address = curr_addr
@@ -123,17 +122,17 @@ See [I. Sabzevari and S. Sharma](https://pubs.acs.org/doi/epdf/10.1021/acs.jctc.
 a detailed description of the algorithm.
 """
 function kinetic_vqmc(
-    hamiltonian, ansatz;
+    hamiltonian, ansatz, params;
     samples=1e6,
     walkers=Threads.nthreads() > 1 ? Threads.nthreads() * 2 : 1,
     steps=round(Int, samples / walkers),
     )
 
     if walkers > 1
-        state = [KineticVQMCWalkerState(hamiltonian, ansatz) for _ in 1:walkers]
+        state = [KineticVQMCWalkerState(hamiltonian, ansatz, params) for _ in 1:walkers]
         states = state
     else
-        state = KineticVQMCWalkerState(hamiltonian, ansatz)
+        state = KineticVQMCWalkerState(hamiltonian, ansatz, params)
         states = [state]
     end
     kinetic_vqmc!(state; steps)
