@@ -4,18 +4,23 @@ using Rimu
 using VectorInterface
 using Folds
 using ProgressMeter
+using Parameters
+using Measurements
+using Statistics
+using StatsBase
+using StaticArrays
 
-include("deterministic-evaluator.jl")
-export GutzwillerEvaluator
+using Tables
 
-include("metropolis.jl")
-export VariationalEnergyAccumulator, VectorAccumulator, metropolis_hastings
+export GutzwillerAnsatz, LocalEnergyEvaluator, val_and_grad, local_energy
+export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
 
-include("qmc-evaluator.jl")
-export GutzwillerQMCEvaluator
+include("utils.jl")
+include("ansatz.jl")
+include("localenergy.jl")
 
-
-include("optimization.jl")
-export gutz_optimize
+include("kinetic-vqmc/state.jl")
+include("kinetic-vqmc/qmc.jl")
+include("kinetic-vqmc/wrapper.jl")
 
 end
