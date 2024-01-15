@@ -4,6 +4,9 @@ authors = ["mtsch <matijacufar@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+DataAPI = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
