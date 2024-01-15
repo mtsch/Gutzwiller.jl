@@ -9,20 +9,19 @@ using Rimu
 using Statistics
 using StatsBase
 using StaticArrays
+using Tables
 using VectorInterface
 
-include("deterministic-evaluator.jl")
-export GutzwillerEvaluator
+export GutzwillerAnsatz, LocalEnergyEvaluator, val_and_grad, local_energy
+export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
 
-include("metropolis.jl")
-export VariationalEnergyAccumulator, VectorAccumulator, metropolis_hastings
+include("utils.jl")
+include("ansatz.jl")
+include("localenergy.jl")
 
-include("qmc-evaluator.jl")
-export GutzwillerQMCEvaluator
-
-
-include("optimization.jl")
-export gutz_optimize
+include("kinetic-vqmc/state.jl")
+include("kinetic-vqmc/qmc.jl")
+include("kinetic-vqmc/wrapper.jl")
 
 include("amsgrad.jl")
 

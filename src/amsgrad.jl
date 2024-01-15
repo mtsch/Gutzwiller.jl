@@ -1,10 +1,3 @@
-# m[i] = f(grad)
-# n[i] = g(grad)
-# delta_p[j] = -αm[j]/√n[j] # update to params
-
-# TODO: _continue_ computations to prevent issues with warmup.
-#
-
 function amsgrad(f, params; kwargs...)
     params_svec = SVector{length(params)}(params)
     return amsgrad(f, params_svec; kwargs...)
@@ -26,9 +19,9 @@ function amsgrad(
 
     for iter in 1:maxiter
         val, grad = val_and_grad(f, params)
-        first_moment = (1 - β1) * first_moment - β1 * grad
+        first_moment = (1 - β1) * first_moment + β1 * grad
         second_moment = max.((1 - β2) * second_moment + β2 * grad.^2, second_moment)
-        Δparams = -α .* first_moment ./ sqrt.(second_moment)
+        Δparams = α .* first_moment ./ sqrt.(second_moment)
 
         if verbose
             print(stderr, "Step $iter:")
@@ -40,7 +33,7 @@ function amsgrad(
 
 
         push!(df, (; iter, val, grad, params, Δparams))
-        params += Δparams
+        params -= Δparams
 
         if norm(Δparams) < ptol
             break

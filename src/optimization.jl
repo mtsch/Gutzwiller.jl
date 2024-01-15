@@ -1,3 +1,19 @@
+function three_point_parabola(x, y)
+    A1 = -x[1]^2 + x[2]^2
+    B1 = -x[1] + x[2]
+    D1 = -y[1] + y[2]
+    A2 = -x[2]^2 + x[3]^2
+    B2 = -x[2] + x[3]
+    D2 = -y[2] + y[3]
+
+    B_mul = -B2/B1
+    A3 = B_mul * A1 + A2
+    D3 = B_mul * D1 + D2
+    a = D3/A3
+    b = (D1 - A1*a)/B1
+    return b/2a
+end
+
 function compare_with_err(y1, y2)
     μ1 = y1.mean
     σ1 = y1.err
@@ -120,7 +136,7 @@ function gutz_optimize(
         el = @elapsed evaluator = GutzwillerEvaluator(H)
         verbose && print(stderr, "done in")
         verbose && Base.time_print(stderr, el * 1e9)
-        verbose && println()
+        verbose && println(stderr)
     end
     verbose && println(stderr, evaluator)
 
