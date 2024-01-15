@@ -12,7 +12,7 @@ using StaticArrays
 using Tables
 using VectorInterface
 
-export GutzwillerAnsatz, LocalEnergyEvaluator, val_and_grad, local_energy
+export GutzwillerAnsatz, VectorAnsatz, LocalEnergyEvaluator, val_and_grad, local_energy
 export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
 
 include("utils.jl")

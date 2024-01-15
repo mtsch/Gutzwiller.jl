@@ -106,7 +106,7 @@ function kinetic_vqmc!(res::KineticVQMCResult; steps=length(res.states[1]))
 end
 
 """
-    kinetic_vqmc(hamiltonian, ansatz; steps=1e6, walkers=Threads.nthreads() * 2)
+    kinetic_vqmc(hamiltonian, ansatz, params; steps=1e6, walkers=Threads.nthreads() * 2)
 
 Use continuous time variational quantum Monte Carlo to sample a addresses and local energies
 from `hamiltonian` and `ansatz`. The `ansatz` must be indexable by addresses accepted by
