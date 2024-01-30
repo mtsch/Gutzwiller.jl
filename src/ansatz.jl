@@ -129,5 +129,7 @@ function val_and_grad(gv::ExtendedGutzwillerAnsatz, addr, params)
 end
 
 function (gv::ExtendedGutzwillerAnsatz)(addr, params)
-    return exp(-params[1] * diagonal_element(gv.hamiltonian, addr) -params[2] * ebh(addr)[1])
+    g1,g2 = params
+    ebh_int, bh_int = ebh(addr)
+    return exp(-g1*bh_int + -g2*ebh_int)
 end

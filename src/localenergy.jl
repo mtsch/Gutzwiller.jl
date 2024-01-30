@@ -167,3 +167,7 @@ function (le::LocalEnergyEvaluator{N,T})(F, G, params) where {N,T}
         return nothing
     end
 end
+
+function (le::LocalEnergyEvaluator{N,T})(params...) where {N,T}
+    return le(params)
+end
