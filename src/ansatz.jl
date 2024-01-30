@@ -99,12 +99,12 @@ end
 The Extended Gutzwiller ansatz:
 
 ```math
-G_i = exp(-g H_{i,i}),
+G_i = exp(-g_1 H_{i,i}) exp(-g_2 \\sum_{<i,j>} n_i n_j ),
 ```
 
-where ``H`` is the `hamiltonian` passed to the struct.
+where ``H`` is an ExtendedHubbardReal1D Hamiltonian. The additional term accounts for the strength of nearest-neighbour interactions.
 
-It takes a single parameter, `g`.
+It takes two parameters, `g_1` and `g_2`.
 """
 struct ExtendedGutzwillerAnsatz{A,T<:Real,H} <: AbstractAnsatz{A,T,2}
     hamiltonian::H
