@@ -16,6 +16,7 @@ import Rimu.Hamiltonians.extended_bose_hubbard_interaction as ebh
 
 export ExtendedGutzwillerAnsatz,GutzwillerAnsatz, VectorAnsatz, LocalEnergyEvaluator, val_and_grad, local_energy
 export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
+export AnsatzSampling
 
 include("utils.jl")
 include("ansatz.jl")
