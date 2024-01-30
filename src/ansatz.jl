@@ -118,11 +118,8 @@ end
 Rimu.build_basis(gv::ExtendedGutzwillerAnsatz) = build_basis(gv.hamiltonian)
 
 function val_and_grad(gv::ExtendedGutzwillerAnsatz, addr, params)
-    g1 = params[1]
-    diag = diagonal_element(gv.hamiltonian, addr)
-
-    g2 = params[2]
-    ebh_interaction = ebh(addr)[1]
+    g1, g2 = params
+    ebh_interaction, diag = ebh(addr)
 
     val = exp(-g1 * diag + -g2*ebh_interaction)
     der_g1 = -diag * val
