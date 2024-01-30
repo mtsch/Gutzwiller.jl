@@ -92,3 +92,42 @@ function val_and_grad(va::VectorAnsatz, addr, ::SVector{0})
     return va.vector[addr], SVector{0,valtype(va)}()
 end
 (va::VectorAnsatz)(addr, ::SVector{0}) = va.vector[addr]
+
+"""
+    ExtendedGutzwillerAnsatz(hamiltonian) <: AbstractAnsatz
+
+The Extended Gutzwiller ansatz:
+
+```math
+G_i = exp(-g_1 H_{i,i}) exp(-g_2 \\sum_{<i,j>} n_i n_j ),
+```
+
+where ``H`` is an ExtendedHubbardReal1D Hamiltonian. The additional term accounts for the strength of nearest-neighbour interactions.
+
+It takes two parameters, `g_1` and `g_2`.
+"""
+struct ExtendedGutzwillerAnsatz{A,T<:Real,H} <: AbstractAnsatz{A,T,2}
+    hamiltonian::H
+end
+function ExtendedGutzwillerAnsatz(hamiltonian)
+    A = typeof(starting_address(hamiltonian))
+    T = eltype(hamiltonian)
+    return ExtendedGutzwillerAnsatz{A,T,typeof(hamiltonian)}(hamiltonian)
+end
+
+Rimu.build_basis(gv::ExtendedGutzwillerAnsatz) = build_basis(gv.hamiltonian)
+
+function val_and_grad(gv::ExtendedGutzwillerAnsatz, addr, params)
+    g1, g2 = params
+    ebh_interaction, diag = ebh(addr)
+
+    val = exp(-g1 * diag + -g2*ebh_interaction)
+    der_g1 = -diag * val
+    der_g2 = -ebh_interaction * val
+
+    return val, SVector(der_g1, der_g2)
+end
+
+function (gv::ExtendedGutzwillerAnsatz)(addr, params)
+    return exp(-params[1] * diagonal_element(gv.hamiltonian, addr) -params[2] * ebh(addr)[1])
+end
