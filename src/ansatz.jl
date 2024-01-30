@@ -6,7 +6,7 @@ with `N` parameters.
 
 It must provide the following:
 
-* `anstaz(key::K, params)::V`: Get the value of the ansatz for a given address `key` with
+* `ansatz(key::K, params)::V`: Get the value of the ansatz for a given address `key` with
   specified parameters.
 * `val_and_grad(ansatz, key, params)`: Get the value and gradient (w.r.t. the paramters) of
   the ansatz.
@@ -17,20 +17,23 @@ abstract type AbstractAnsatz{K,V,N} end
 Base.keytype(::AbstractAnsatz{K}) where {K} = K
 Base.valtype(::AbstractAnsatz{<:Any,V}) where {V} = V
 
-function collect_to_vec!(dst, ans::AbstractAnsatz, params)
-    basis = build_basis(ans)
+function collect_to_vec!(dst, ans::AbstractAnsatz, params, basis)
     for k in basis
         dst[k] = ans(k, params)
     end
     return dst
 end
-function Rimu.DVec(ans::AbstractAnsatz{K,V,N}, params; kwargs...) where {K,V,N}
+function Rimu.DVec(
+    ans::AbstractAnsatz{K,V,N}, params; basis=build_basis(ans), kwargs...
+) where {K,V,N}
     result = DVec{K,V}(; kwargs...)
-    return collect_to_vec!(result, ans, SVector{N,V}(params))
+    return collect_to_vec!(result, ans, SVector{N,V}(params), basis)
 end
-function Rimu.PDVec(ans::AbstractAnsatz{K,V,N}, params; kwargs...) where {K,V,N}
+function Rimu.PDVec(
+    ans::AbstractAnsatz{K,V,N}, params; basis=build_basis(ans), kwargs...
+) where {K,V,N}
     result = PDVec{K,V}(; kwargs...)
-    return collect_to_vec!(result, ans, SVector{N,V}(params))
+    return collect_to_vec!(result, ans, SVector{N,V}(params), basis)
 end
 
 """
@@ -129,5 +132,7 @@ function val_and_grad(gv::ExtendedGutzwillerAnsatz, addr, params)
 end
 
 function (gv::ExtendedGutzwillerAnsatz)(addr, params)
-    return exp(-params[1] * diagonal_element(gv.hamiltonian, addr) -params[2] * ebh(addr)[1])
+    g1,g2 = params
+    ebh_int, bh_int = ebh(addr)
+    return exp(-g1*bh_int + -g2*ebh_int)
 end
