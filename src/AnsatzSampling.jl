@@ -26,7 +26,7 @@ Rimu.num_offdiagonals(h::AnsatzSampling, add) = num_offdiagonals(h.hamiltonian, 
 Rimu.diagonal_element(h::AnsatzSampling, add) = diagonal_element(h.hamiltonian, add)
 
 function ansatz_modify(matrix_element, add1_ansatz, add2_ansatz)
-    return matrix_element * (add1_ansatz/add2_ansatz)
+    return matrix_element * (add2_ansatz/add1_ansatz)
 end
 
 function Rimu.get_offdiagonal(h::AnsatzSampling, add1, chosen)
