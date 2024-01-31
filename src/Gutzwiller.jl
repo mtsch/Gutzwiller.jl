@@ -21,11 +21,13 @@ export AnsatzSampling
 include("utils.jl")
 include("ansatz.jl")
 include("localenergy.jl")
+include("AnsatzSampling.jl")
 
 include("kinetic-vqmc/state.jl")
 include("kinetic-vqmc/qmc.jl")
 include("kinetic-vqmc/wrapper.jl")
 
 include("amsgrad.jl")
+
 
 end
