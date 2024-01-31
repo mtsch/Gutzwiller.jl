@@ -15,23 +15,23 @@ function AnsatzSampling(h, ansatz::AbstractAnsatz{K,T,N}, params) where {K,T,N}
 
     params = SVector{N,T}(params)
 
-    return AnsatzSampling(hamiltonian, ansatz, params)
+    return AnsatzSampling(h, ansatz, params)
 end
 
-starting_address(h::AnsatzSampling) = starting_address(h.hamiltonian)
-LOStructure(::Type{<:AnsatzSampling{<:Any,<:Any,<:Any,H}}) where {H} = AdjointUnknown()
+Rimu.starting_address(h::AnsatzSampling) = starting_address(h.hamiltonian)
+Rimu.LOStructure(::Type{<:AnsatzSampling{<:Any,<:Any,<:Any,H}}) where {H} = AdjointUnknown()
 
-dimension(h::AnsatzSampling, addr) = dimension(h.hamiltonian, addr)
-num_offdiagonals(h::AnsatzSampling, add) = num_offdiagonals(h.hamiltonian, add)
-diagonal_element(h::AnsatzSampling, add) = diagonal_element(h.hamiltonian, add)
+Rimu.dimension(h::AnsatzSampling, addr) = dimension(h.hamiltonian, addr)
+Rimu.num_offdiagonals(h::AnsatzSampling, add) = num_offdiagonals(h.hamiltonian, add)
+Rimu.diagonal_element(h::AnsatzSampling, add) = diagonal_element(h.hamiltonian, add)
 
-function ansatz_modify(matrix_element, A, add1_ansatz, add2_ansatz)
+function ansatz_modify(matrix_element, add1_ansatz, add2_ansatz)
     return matrix_element * (add1_ansatz/add2_ansatz)
 end
 
-function get_offdiagonal(h::AnsatzSampling, add1, chosen)
+function Rimu.get_offdiagonal(h::AnsatzSampling, add1, chosen)
     add2, matrix_element = get_offdiagonal(h.hamiltonian, add1, chosen)
     add1_ansatz = (h.ansatz)(add1, h.params)
     add2_ansatz = (h.ansatz)(add2, h.params)
-    return add2, ansatz_modify(matrix_element, A, add1_ansatz, add2_ansatz)
+    return add2, ansatz_modify(matrix_element, add1_ansatz, add2_ansatz)
 end
