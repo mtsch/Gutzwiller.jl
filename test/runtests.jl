@@ -109,7 +109,7 @@ end
                 @test le(g - sign(grad[1]) * 1e-3) < val
                 @test le(g + sign(grad[1]) * 1e-3) > val
 
-                grad ≈ derivative(le, g)
+                @test grad ≈ ForwardDiff.gradient(le, [g]) atol=1e-10 rtol=√eps(Float64)
             end
         end
     end
