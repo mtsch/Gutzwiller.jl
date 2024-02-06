@@ -37,53 +37,51 @@ function Rimu.get_offdiagonal(h::AnsatzSampling, add1, chosen)
 end
 
 
-"""
-    TransformUndoer(k::AnsatzSampling, op::AbstractHamiltonian)
-    TransformUndoer(k::AnsatzSampling)
+# """
+#     Rimu.TransformUndoer(k::AnsatzSampling, op::AbstractHamiltonian)
+#     Rimu.TransformUndoer(k::AnsatzSampling)
 
-For a general similarity transformation ``\\hat{G} = f \\hat{H} f^{-1}`` under an ansatz,
-define the operator ``f^{-1} \\hat{A} f^{-1}``, and special case ``f^{-2}``, in order
-to calculate observables. Here ``f`` is a diagonal operator whose entries are
-the components of the ansatz vector, i.e.``f_{ii} = v_i``.
-
-See [`AllOverlaps`](@ref), [`GuidingVectorSampling`](@ref).
-"""
-function TransformUndoer(k::AnsatzSampling, op::Union{Nothing,AbstractHamiltonian})
+# For a general similarity transformation ``\\hat{G} = f \\hat{H} f^{-1}`` under an ansatz,
+# define the operator ``f^{-1} \\hat{A} f^{-1}``, and special case ``f^{-2}``, in order
+# to calculate observables. Here ``f`` is a diagonal operator whose entries are
+# the components of the ansatz vector, i.e.``f_{ii} = v_i``.
+# """
+function Rimu.Hamiltonians.TransformUndoer(k::AnsatzSampling, op::Union{Nothing,AbstractHamiltonian})
     if isnothing(op)
         T = eltype(k)
     else
         T = promote_type(eltype(k), eltype(op))
     end
-    return TransformUndoer{T,typeof(k),typeof(op)}(k, op)
+    return Rimu.Hamiltonians.TransformUndoer{T,typeof(k),typeof(op)}(k, op)
 end
 
 # methods for general operator `f^{-1} A f^{-1}`
-LOStructure(::Type{<:TransformUndoer{<:Any,<:AnsatzSampling,A}}) where {A} = LOStructure(A)
+Rimu.LOStructure(::Type{<:Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,A}}) where {A} = LOStructure(A)
 
-function Rimu.diagonal_element(s::TransformUndoer{<:Any,<:GutzwillerSampling,<:AbstractHamiltonian}, addr)
+function Rimu.diagonal_element(s::Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,<:AbstractHamiltonian}, addr)
     diagH = diagonal_element(s.transform.hamiltonian, addr)
     diagA = diagonal_element(s.op, addr)
     return ansatz_modify(diagA, 2 * diagH, 1.0) # Apply diagonal `f^{-1}` twice
 end
 
-function Rimu.num_offdiagonals(s::TransformUndoer{<:Any,<:AnsatzSampling,<:Any}, addr)
+function Rimu.num_offdiagonals(s::Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,<:Any}, addr)
     return num_offdiagonals(s.op, addr)
 end
 
-function get_offdiagonal(s::TransformUndoer{<:Any,<:AnsatzSampling,<:Any}, add1, chosen)
-    add2, offd = get_offdiagonal(s.op, add1, chosen)
+function Rimu.get_offdiagonal(s::Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,<:Any}, addr1, chosen)
+    addr2, offd = get_offdiagonal(s.op, addr1, chosen)
     # Guiding vector `v` is represented as a diagonal operator `f`
-    diagH1 = diagonal_element(s.transform.hamiltonian, add)
-    diagH2 = diagonal_element(s.transform.hamiltonian, newadd)
-    return add2, guided_vector_modify(offd,diagH1 + diagH2,1.0)
+    diagH1 = diagonal_element(s.transform.hamiltonian, addr1)
+    diagH2 = diagonal_element(s.transform.hamiltonian, addr2)
+    return addr2, ansatz_modify(offd,diagH1 + diagH2,1.0)
 end
 
 # methods for special case `f^{-2}`
-LOStructure(::Type{<:TransformUndoer{<:Any,<:AnsatzSampling,Nothing}}) = IsDiagonal()
+Rimu.LOStructure(::Type{<:Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,Nothing}}) = IsDiagonal()
 
-function diagonal_element(s::TransformUndoer{<:Any,<:AnsatzSampling,Nothing}, add)
+function Rimu.diagonal_element(s::Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,Nothing}, add)
     diagH = diagonal_element(s.transform.hamiltonian, add)
-    return guided_vector_modify(1., true, s.transform.eps, 2 * guide, 1.0)
+    return ansatz_modify(1.,2 * diagH, 1.0)
 end
 
-num_offdiagonals(s::TransformUndoer{<:Any,<:AnsatzSampling,Nothing}, add) = 0
+Rimu.num_offdiagonals(s::Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,Nothing}, add) = 0
