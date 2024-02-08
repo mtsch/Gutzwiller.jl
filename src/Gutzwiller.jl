@@ -9,6 +9,7 @@ using Rimu
 using Statistics
 using StatsBase
 using StaticArrays
+using SpecialFunctions
 using Tables
 using VectorInterface
 
@@ -27,7 +28,7 @@ include("ansatz/binomial.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
 
-export LocalEnergyEvalator
+export LocalEnergyEvaluator
 include("localenergy.jl")
 
 export AnsatzSampling

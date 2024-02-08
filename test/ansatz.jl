@@ -1,0 +1,59 @@
+using Test
+using Gutzwiller
+using Rimu
+using ForwardDiff
+
+function check_ansatz(H, ansatz, params)
+    @testset "$H / $ansatz" begin
+        # these tests look dumb, but assuming H and params are selected properly, they do
+        # make sense.
+        @testset "properties" begin
+            @test num_parameters(ansatz) == length(params)
+            @test keytype(ansatz) == typeof(starting_address(H))
+            @test valtype(ansatz) == eltype(params)
+        end
+
+        @testset "val_and_grad" begin
+            addrs = rand(build_basis(H), 5)
+            for addr in addrs
+                val1 = ansatz(addr, params)
+                val2, grad1 = val_and_grad(ansatz, addr, params)
+                grad2 = ForwardDiff.gradient(x -> ansatz(addr, x), params)
+
+                @test val1 ≈ val2
+                @test grad1 ≈ grad2 atol=1e-10 rtol=√eps(Float64)
+            end
+        end
+
+        @testset "LocalEnergyEvaluator val_and_grad" begin
+            le = LocalEnergyEvaluator(H, ansatz)
+            val1 = le(params)
+            val2, grad1 = val_and_grad(le, params)
+            grad2 = ForwardDiff.gradient(le, params)
+
+            @test val1 ≈ val2
+            @test grad1 ≈ grad2 atol=1e-10 rtol=√eps(Float64)
+
+            val_rq = rayleigh_quotient(H, PDVec(ansatz, params; basis=build_basis(H)))
+            @test val_rq ≈ val1
+        end
+    end
+end
+
+@testset "Ansatz tests" begin
+    for H in (
+        HubbardReal1D(near_uniform(BoseFS{5,5}); t=0.1),
+        ExtendedHubbardReal1D(near_uniform(BoseFS{5,5}); t=0.1),
+        HubbardMom1D(BoseFS(10, 5 => 3); u=4),
+        HubbardRealSpace(FermiFS2C((1,0,0,1), (1,1,0,0)); geometry=PeriodicBoundaries(2,2)),
+    )
+        check_ansatz(H, GutzwillerAnsatz(H), [0.4])
+        if H isa ExtendedHubbardReal1D
+            check_ansatz(H, ExtendedGutzwillerAnsatz(H), [0.4, 0.5])
+        end
+        if starting_address(H) isa BoseFS
+            check_ansatz(H, BinomialAnsatz(H), [0.5])
+            check_ansatz(H, GutzwillerAnsatz(H) + BinomialAnsatz(H), [0.5, 0.4, 0.2])
+        end
+    end
+end

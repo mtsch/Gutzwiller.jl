@@ -90,27 +90,4 @@ end
     end
 end
 
-@testset "local energy w/Gutzwiller" begin
-    for H in (
-        HubbardReal1D(near_uniform(BoseFS{5,5}); t=0.1),
-        HubbardMom1D(BoseFS(10, 5 => 3); u=4),
-        HubbardRealSpace(FermiFS2C((1,0,0,1), (1,1,0,0)); geometry=PeriodicBoundaries(2,2)),
-    )
-        for g in (0.1, 1.0, 10.0)
-            @testset "$H w/ g=$g" begin
-                le = LocalEnergyEvaluator(H, GutzwillerAnsatz(H))
-                vector = PDVec(GutzwillerAnsatz(H), g)
-                @test le(g) ≈ rayleigh_quotient(H, vector)
-
-                val, grad = val_and_grad(le, g)
-                @test val == le(g)
-
-                # Gradient descent step should improve the energy
-                @test le(g - sign(grad[1]) * 1e-3) < val
-                @test le(g + sign(grad[1]) * 1e-3) > val
-
-                @test grad ≈ ForwardDiff.gradient(le, [g]) atol=1e-10 rtol=√eps(Float64)
-            end
-        end
-    end
-end
+include("ansatz.jl")
