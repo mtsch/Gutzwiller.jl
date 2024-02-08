@@ -1,3 +1,4 @@
+using ForwardDiff
 using DataFrames
 using Gutzwiller
 using KrylovKit
@@ -107,6 +108,8 @@ end
                 # Gradient descent step should improve the energy
                 @test le(g - sign(grad[1]) * 1e-3) < val
                 @test le(g + sign(grad[1]) * 1e-3) > val
+
+                @test grad ≈ ForwardDiff.gradient(le, [g]) atol=1e-10 rtol=√eps(Float64)
             end
         end
     end

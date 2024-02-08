@@ -142,7 +142,7 @@ function (le::LocalEnergyEvaluator{N,T})(params) where {N,T}
         den = abs2(k_val)
 
         for (l, melem) in offdiagonals(ham, k)
-            l_val, l_grad = val_and_grad(le.ansatz, l, params)
+            l_val = le.ansatz(l, params)
             num += l_val * melem * k_val
         end
 
