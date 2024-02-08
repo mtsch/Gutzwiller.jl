@@ -40,7 +40,7 @@ function check_ansatz(H, ansatz, params)
     end
 end
 
-@testset "Ansatz tests" begin
+@testset "general Ansatz tests" begin
     for H in (
         HubbardReal1D(near_uniform(BoseFS{5,5}); t=0.1),
         ExtendedHubbardReal1D(near_uniform(BoseFS{5,5}); t=0.1),
@@ -54,6 +54,22 @@ end
         if starting_address(H) isa BoseFS
             check_ansatz(H, BinomialAnsatz(H), [0.5])
             check_ansatz(H, GutzwillerAnsatz(H) + BinomialAnsatz(H), [0.5, 0.4, 0.2])
+        end
+    end
+end
+
+@testset "BinomialAnsatz" begin
+    @testset "is exact for u=0" begin
+        for H in (
+            HubbardReal1D(BoseFS((1,1,1,1,1)); u=0),
+            HubbardReal1D(BoseFS((1,2,1,1)); u=0),
+            HubbardRealSpace(BoseFS((1,1,1,1,0,0)); u=0, geometry=PeriodicBoundaries(2,3)),
+        )
+            res = eigsolve(H, DVec(starting_address(H) => 1.0), 1, :SR)
+            Rimu.scale!(res[2][1], sign(first(values(res[2][1]))))
+            bin = BinomialAnsatz(H; normalize=true)
+            @test LocalEnergyEvaluator(H, bin)([0.5]) ≈ res[1][1]
+            @test DVec(bin, [0.5]; basis=build_basis(H)) ≈ res[2][1]
         end
     end
 end
