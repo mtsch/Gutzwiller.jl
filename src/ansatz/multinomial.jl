@@ -23,11 +23,11 @@ function multinomial_weight(addr, occ=OccupiedModeMap(addr))
     return prod(idx -> 1/gamma(idx.occnum + 1), occ)
 end
 
-(b::MultinomialAnsatz)(addr, p) = (binomial_weight(addr) * b.normalization)^p[1]
+(b::MultinomialAnsatz)(addr, p) = (multinomial_weight(addr) * b.normalization)^p[1]
 
 function val_and_grad(b::MultinomialAnsatz, addr, param)
     p = only(param)
-    y = binomial_weight(addr) * b.normalization
+    y = multinomial_weight(addr) * b.normalization
     val = y^p
     val, SVector{1,Float64}(val * log(y))
 end
