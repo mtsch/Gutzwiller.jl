@@ -23,7 +23,7 @@ export GutzwillerAnsatz
 include("ansatz/gutzwiller.jl")
 export ExtendedGutzwillerAnsatz
 include("ansatz/extgutzwiller.jl")
-export BinomialAnsatz
+export MultinomialAnsatz
 include("ansatz/multinomial.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
