@@ -52,13 +52,13 @@ end
             check_ansatz(H, ExtendedGutzwillerAnsatz(H), [0.4, 0.5])
         end
         if starting_address(H) isa BoseFS
-            check_ansatz(H, BinomialAnsatz(H), [0.5])
-            check_ansatz(H, GutzwillerAnsatz(H) + BinomialAnsatz(H), [0.5, 0.4, 0.2])
+            check_ansatz(H, MultinomialAnsatz(H), [0.5])
+            check_ansatz(H, GutzwillerAnsatz(H) + MultinomialAnsatz(H), [0.5, 0.4, 0.2])
         end
     end
 end
 
-@testset "BinomialAnsatz" begin
+@testset "MultinomialAnsatz" begin
     @testset "is exact for u=0" begin
         for H in (
             HubbardReal1D(BoseFS((1,1,1,1,1)); u=0),
@@ -67,7 +67,7 @@ end
         )
             res = eigsolve(H, DVec(starting_address(H) => 1.0), 1, :SR)
             Rimu.scale!(res[2][1], sign(first(values(res[2][1]))))
-            bin = BinomialAnsatz(H; normalize=true)
+            bin = MultinomialAnsatz(H; normalize=true)
             @test LocalEnergyEvaluator(H, bin)([0.5]) ≈ res[1][1]
             @test DVec(bin, [0.5]; basis=build_basis(H)) ≈ res[2][1]
         end

@@ -24,7 +24,7 @@ include("ansatz/gutzwiller.jl")
 export ExtendedGutzwillerAnsatz
 include("ansatz/extgutzwiller.jl")
 export BinomialAnsatz
-include("ansatz/binomial.jl")
+include("ansatz/multinomial.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
 

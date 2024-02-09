@@ -12,7 +12,7 @@ function plot_multinomial!(fig, H; title)
     v0 *= sign(first(values(v0)))
     basis = build_basis(H)
 
-    ansatz = BinomialAnsatz(H)
+    ansatz = MultinomialAnsatz(H)
     evaluator = LocalEnergyEvaluator(H, ansatz; basis)
     optres = optimize(Optim.only_fg!(evaluator), [0.5])
 

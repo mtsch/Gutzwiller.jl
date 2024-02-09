@@ -5,10 +5,10 @@
 b
 ```
 """
-struct BinomialAnsatz{K} <: Gutzwiller.AbstractAnsatz{K,Float64,1}
+struct MultinomialAnsatz{K} <: Gutzwiller.AbstractAnsatz{K,Float64,1}
     normalization::Float64
 end
-function BinomialAnsatz(H::AbstractHamiltonian; normalize=false)
+function MultinomialAnsatz(H::AbstractHamiltonian; normalize=false)
     K = typeof(starting_address(H))
     N = float(num_particles(K))
     if normalize
@@ -16,16 +16,16 @@ function BinomialAnsatz(H::AbstractHamiltonian; normalize=false)
     else
         normalization = 1.0
     end
-    return BinomialAnsatz{K}(normalization)
+    return MultinomialAnsatz{K}(normalization)
 end
 
-function binomial_weight(addr, occ=OccupiedModeMap(addr))
+function multinomial_weight(addr, occ=OccupiedModeMap(addr))
     return prod(idx -> 1/gamma(idx.occnum + 1), occ)
 end
 
-(b::BinomialAnsatz)(addr, p) = (binomial_weight(addr) * b.normalization)^p[1]
+(b::MultinomialAnsatz)(addr, p) = (binomial_weight(addr) * b.normalization)^p[1]
 
-function val_and_grad(b::BinomialAnsatz, addr, param)
+function val_and_grad(b::MultinomialAnsatz, addr, param)
     p = only(param)
     y = binomial_weight(addr) * b.normalization
     val = y^p
