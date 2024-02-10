@@ -60,8 +60,8 @@ function Rimu.diagonal_element(s::AnsatzTransformUndoer, addr)
     params = s.transform.params
     ansatz1 = ansatz(addr, params)
 
-    diagA = diagonal_element(s.op, addr)
-    return diagA / ansatz1^2 # Apply diagonal `f^{-1}` twice
+    diag = diagonal_element(s.op, addr)
+    return diag / ansatz1^2 # Apply diagonal `f^{-1}` twice
 end
 
 function Rimu.num_offdiagonals(s::AnsatzTransformUndoer, addr)
@@ -82,7 +82,7 @@ end
 # Methods for special case `f^{-2}`
 Rimu.LOStructure(::Type{<:AnsatzTransformUndoer{Nothing}}) = IsDiagonal()
 
-    function Rimu.diagonal_element(s::AnsatzTransformUndoer{Nothing}, addr)
+function Rimu.diagonal_element(s::AnsatzTransformUndoer{Nothing}, addr)
     ansatz = s.transform.ansatz
     params = s.transform.params
     ansatz1 = ansatz(addr, params)
