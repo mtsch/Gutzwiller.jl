@@ -23,9 +23,11 @@ using KrylovKit
             ExtendedGutzwillerAnsatz(H),
             MultinomialAnsatz(H),
         )
-            G = AnsatzSampling(H, ansatz, [rand() for _ in 1:num_parameters(ansatz)])
+            @testset "$ansatz" begin
+                G = AnsatzSampling(H, ansatz, fill(0.5, num_parameters(ansatz)))
 
-            @test eigsolve(sparse(G), 1, :SR)[1][1] ≈ E0
+                @test eigsolve(sparse(G), 1, :SR)[1][1] ≈ E0
+            end
         end
     end
 end
