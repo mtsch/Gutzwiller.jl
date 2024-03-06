@@ -102,10 +102,10 @@ end
 The Extended Gutzwiller ansatz:
 
 ```math
-G_i = exp(-g_1 H_{i,i}) exp(-g_2 \\sum_{<i,j>} n_i n_j ),
+G_i = exp(-g_1 \\sum_{i} n_i (n_i-1)) exp(-g_2 \\sum_{<i,j>} n_i n_j ),
 ```
 
-where ``H`` is an ExtendedHubbardReal1D Hamiltonian. The additional term accounts for the strength of nearest-neighbour interactions.
+where the arguments of the exponentials are the onsite and nearest neighbour interactions for an ExtendedHubbardReal1D Hamiltonian.
 
 It takes two parameters, `g_1` and `g_2`.
 """
