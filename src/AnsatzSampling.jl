@@ -41,3 +41,59 @@ function Rimu.get_offdiagonal(h::AnsatzSampling, add1, chosen)
     add2_ansatz = (h.ansatz)(add2, h.params)
     return add2, ansatz_modify(matrix_element, add1_ansatz, add2_ansatz)
 end
+
+###
+### TransformUndoer
+###
+const AnsatzTransformUndoer{O} = Rimu.Hamiltonians.TransformUndoer{<:Any,<:AnsatzSampling,O}
+
+function Rimu.Hamiltonians.TransformUndoer(
+    k::AnsatzSampling, op::Union{Nothing,AbstractHamiltonian}
+)
+    if isnothing(op)
+        T = eltype(k)
+    else
+        T = promote_type(eltype(k), eltype(op))
+    end
+    return Rimu.Hamiltonians.TransformUndoer{T,typeof(k),typeof(op)}(k, op)
+end
+
+# methods for general operator `f^{-1} A f^{-1}`
+Rimu.LOStructure(::Type{<:AnsatzTransformUndoer{A}}) where {A} = LOStructure(A)
+
+function Rimu.diagonal_element(s::AnsatzTransformUndoer, addr)
+    ansatz = s.transform.ansatz
+    params = s.transform.params
+    ansatz1 = ansatz(addr, params)
+
+    diag = diagonal_element(s.op, addr)
+    return diag / ansatz1^2 # Apply diagonal `f^{-1}` twice
+end
+
+function Rimu.num_offdiagonals(s::AnsatzTransformUndoer, addr)
+    return num_offdiagonals(s.op, addr)
+end
+
+function Rimu.get_offdiagonal(s::AnsatzTransformUndoer, addr1, chosen)
+    addr2, offd = get_offdiagonal(s.op, addr1, chosen)
+    # Get the ansatz from the TransformUndoer
+    ansatz = s.transform.ansatz
+    params = s.transform.params
+
+    ansatz1 = ansatz(addr1, params)
+    ansatz2 = ansatz(addr2, params)
+    return addr2, offd / (ansatz1 * ansatz2)
+end
+
+# Methods for special case `f^{-2}`
+Rimu.LOStructure(::Type{<:AnsatzTransformUndoer{Nothing}}) = IsDiagonal()
+
+function Rimu.diagonal_element(s::AnsatzTransformUndoer{Nothing}, addr)
+    ansatz = s.transform.ansatz
+    params = s.transform.params
+    ansatz1 = ansatz(addr, params)
+
+    return 1/(ansatz1^2)
+end
+
+Rimu.num_offdiagonals(s::AnsatzTransformUndoer{Nothing}, _) = 0

@@ -27,10 +27,10 @@ export MultinomialAnsatz
 include("ansatz/multinomial.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
+export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
 
 export LocalEnergyEvaluator
 include("localenergy.jl")
-
 export AnsatzSampling
 include("AnsatzSampling.jl")
 
@@ -41,5 +41,6 @@ include("kinetic-vqmc/wrapper.jl")
 
 # Not done yet.
 include("amsgrad.jl")
+
 
 end
