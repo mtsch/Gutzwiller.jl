@@ -4,6 +4,12 @@ struct AnsatzSampling{T,N,A<:AbstractAnsatz{<:Any,T,N},H} <: AbstractHamiltonian
     params::SVector{N,T}
 end
 
+function AnsatzSampling(
+    h, ansatz::AbstractAnsatz{<:Any,<:Any,N}, params::Vararg{Number,N}
+) where {N}
+    return AnsatzSampling(h, ansatz, params)
+end
+
 function AnsatzSampling(h, ansatz::AbstractAnsatz{K,T,N}, params) where {K,T,N}
     # sanity checks
     if typeof(starting_address(h)) ≢ K
