@@ -53,7 +53,7 @@ function Rimu.Hamiltonians.TransformUndoer(
     if isnothing(op)
         T = eltype(k)
     else
-        T = promote_type(eltype(k), eltype(op))
+        T = typeof(zero(eltype(k)) * zero(eltype(op)))
     end
     return Rimu.Hamiltonians.TransformUndoer{T,typeof(k),typeof(op)}(k, op)
 end
