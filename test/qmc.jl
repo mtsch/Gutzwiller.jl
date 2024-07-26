@@ -1,3 +1,9 @@
+using Gutzwiller
+using KrylovKit
+using Random
+using Rimu
+using Test
+
 @testset "qmc" begin
     Random.seed!(17)
 
