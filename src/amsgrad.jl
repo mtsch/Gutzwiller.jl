@@ -1,29 +1,34 @@
+"""
+    GradientDescentResult
+
+Return type of [`adaptive_gradient_descent`](@ref) variants such as
+[`gradient_descent`](@ref) and [`amsgrad`](@ref).
+
+Can be used as a `Table` from Tables.jl.
+"""
 struct GradientDescentResult{T,P<:SVector{<:Any,T},F}
     fun::F
     hyperparameters::NamedTuple
     initial_params::P
 
-    minimum::T
-    minimizer::P
-
     iterations::Int
     converged::Bool
     reason::String
 
-    params::Vector{P}
-    values::Vector{T}
-    gradients::Vector{P}
-    first_moments::Vector{P}
-    second_moments::Vector{P}
-    param_deltas::Vector{P}
+    param::Vector{P}
+    value::Vector{T}
+    gradient::Vector{P}
+    first_moment::Vector{P}
+    second_moment::Vector{P}
+    param_delta::Vector{P}
 end
 
 function Base.show(io::IO, r::GradientDescentResult)
     println(io, "GradientDescentResult")
     println(io, "  iterations: ", r.iterations)
     println(io, "  converged: ", r.converged, " (", r.reason, ")")
-    println(io, "  minimum: ", r.minimum)
-    print(io, "  minimizer: ", r.minimizer)
+    println(io, "  last value: ", r.value[end])
+    print(io, "  last params: ", r.param[end])
 end
 
 Tables.istable(::Type{<:GradientDescentResult}) = true
@@ -34,7 +39,7 @@ function Tables.Schema(r::GradientDescentResult{T,P}) where {T,P}
     hyper_types = typeof.(value.(r.hyperparameters))
 
     return Tables.Schema(
-        (hyper_keys..., :iter, :subiter, :param, :value, :gradient,
+        (hyper_keys..., :iter, :param, :value, :gradient,
          :first_moment, :second_moment, :param_delta),
         (hyper_types..., Int, Int, P, T, P, P, P, P)
     )
@@ -47,20 +52,30 @@ function Base.getindex(rows::GradientDescentResultRows, i)
     r = rows.result
 
     return (; r.hyperparameters...,
-            iter=1, subiter=i,
-            param=r.params[i],
-            value=r.values[i],
-            gradient=r.gradients[i],
-            first_moment=r.first_moments[i],
-            second_moment=r.second_moments[i],
-            param_delta=r.param_deltas[i],
+            iter=i,
+            param=r.param[i],
+            value=r.value[i],
+            gradient=r.gradient[i],
+            first_moment=r.first_moment[i],
+            second_moment=r.second_moment[i],
+            param_delta=r.param_delta[i],
             )
 end
 function Base.size(rows::GradientDescentResultRows)
-    return (length(rows.result.params), 1)
+    return (length(rows.result.param), 1)
 end
 
+"""
+    adaptive_gradient_descent(
+        φ, ψ, f, p_init::P;
+        maxiter=100, verbose=true, α=0.01,
+        grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
+        kwargs...
+    )
 
+For immediately useful versions of this function, see [`gradient_descent`] and [`amsgrad`].
+Returns [`GradientDescentResult`](@ref).
+"""
 function adaptive_gradient_descent(φ, ψ, f, params; kwargs...)
     params_svec = SVector{length(params)}(params)
     return adaptive_gradient_descent(φ, ψ, f, params_svec; kwargs...)
@@ -90,8 +105,6 @@ function adaptive_gradient_descent(
     converged = false
     reason = "iterations"
 
-    best_val = Inf
-    best_p = p_init
     p = p_init
 
     verbose && (prog = Progress(maxiter))
@@ -112,11 +125,6 @@ function adaptive_gradient_descent(
         push!(first_moments, first_moment)
         push!(second_moments, second_moment)
         push!(param_deltas, δp)
-
-        if val < best_val
-            best_val = val
-            best_p = p
-        end
 
         if norm(δp) < param_tol
             verbose && @info "Converged (params)"
@@ -140,7 +148,7 @@ function adaptive_gradient_descent(
         p = p + δp
 
         verbose && next!(
-            prog; showvalues=(((:iter, iter), (:minimum, best_val), (:minimizer, best_p)))
+            prog; showvalues=(((:iter, iter), (:value, val), (:param, p)))
         )
     end
     iter == maxiter && verbose && @info "Aborted (maxiter)"
@@ -148,16 +156,40 @@ function adaptive_gradient_descent(
     verbose && finish!(prog)
 
     return GradientDescentResult(
-        f, (; α, kwargs...), p_init, best_val, best_p, length(params), converged, reason,
+        f, (; α, kwargs...), p_init, length(params), converged, reason,
         params, values, gradients, first_moments, second_moments, param_deltas,
     )
 end
 
+"""
+    gradient_descent(
+        f, p0;
+        maxiter=100, verbose=true, α=0.01,
+        grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
+    )
+
+Vanilla gradient descent on function `f` with initial parameters `p0`.
+
+See also [`adaptive_gradient_descent`](@ref). Returns [`GradientDescentResult`](@ref).
+"""
 function gradient_descent(f, params; kwargs...)
     φ(m1, g; _...) = g
     ψ(m2, g; _...) = ones(typeof(g))
     return adaptive_gradient_descent(φ, ψ, f, params; kwargs...)
 end
+
+"""
+    amsgrad(
+        f, p0;
+        maxiter=100, verbose=true, α=0.01, β1=0.1, β2=0.01,
+        grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
+    )
+
+[AMSGrad](https://paperswithcode.com/method/amsgrad) on function `f` with initial parameters
+`p0`.
+
+See also [`adaptive_gradient_descent`](@ref). Returns [`GradientDescentResult`](@ref).
+"""
 function amsgrad(f, params; β1=0.1, β2=0.01, kwargs...)
     φ(m1, g; β1, _...) = (1 - β1) * m1 + β1 * g
     ψ(m2, g; β2, _...) = max.((1 - β2) * m2 + β2 * g.^2, m2)

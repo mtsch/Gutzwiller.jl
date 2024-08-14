@@ -23,7 +23,7 @@ function kinetic_sample!(prob_buffer, hamiltonian, ansatz, params, addr1)
     residence_time_denom = 0.0
 
     for (i, (addr2, melem)) in enumerate(offdiags)
-        val2, grad2 = val_and_grad(ansatz, addr2, params)
+        val2 = ansatz(addr2, params)
         residence_time_denom += abs(val2)
         local_energy_num += melem * val2
 
