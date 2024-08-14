@@ -43,7 +43,7 @@ end
 function val_and_grad(res::KineticVQMCWalkerState)
     weights = FrequencyWeights(res.residence_times)
     val = mean(res.local_energies, weights)
-    grads = res.grad_ratios .* (res.local_energies .- val)
+    grads = res.grad_ratios .* (res.local_energies .- val)# ./ weights
     grad = 2 * mean(grads, weights)
 
     return val, grad

@@ -17,25 +17,30 @@ function kinetic_sample!(prob_buffer, hamiltonian, ansatz, params, addr1)
     resize!(prob_buffer, length(offdiags))
 
     val1, grad1 = val_and_grad(ansatz, addr1, params)
-    local_energy_num = diagonal_element(hamiltonian, addr1) * val1
+    diag = diagonal_element(hamiltonian, addr1)
+    local_energy_num = diag * val1
+
     residence_time_denom = 0.0
 
     for (i, (addr2, melem)) in enumerate(offdiags)
-        val2, _ = val_and_grad(ansatz, addr2, params)
+        val2 = ansatz(addr2, params)
         residence_time_denom += abs(val2)
         local_energy_num += melem * val2
-
 
         prob_buffer[i] = residence_time_denom
     end
 
     residence_time = abs(val1) / residence_time_denom
+    if !isfinite(residence_time)
+        error("Infinite residence time at $params")
+    end
     local_energy = local_energy_num / val1
+    gradient = grad1 / val1
 
     chosen = pick_random_from_cumsum(prob_buffer)
     new_addr, _ = offdiags[chosen]
 
-    return new_addr, residence_time, local_energy, grad1
+    return new_addr, residence_time, local_energy, gradient
 end
 
 """

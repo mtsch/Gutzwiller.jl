@@ -13,7 +13,7 @@ using SpecialFunctions
 using Tables
 using VectorInterface
 
-import Rimu.Hamiltonians.extended_bose_hubbard_interaction as ebh
+import Rimu.Hamiltonians.extended_hubbard_interaction as ebh
 
 export num_parameters, val_and_grad
 include("ansatz/abstract.jl")
@@ -25,9 +25,10 @@ export ExtendedGutzwillerAnsatz
 include("ansatz/extgutzwiller.jl")
 export MultinomialAnsatz
 include("ansatz/multinomial.jl")
+export JastrowAnsatz, RelativeJastrowAnsatz
+include("ansatz/jastrow.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
-export kinetic_vqmc, kinetic_vqmc!, local_energy_estimator, KineticVQMC
 
 export LocalEnergyEvaluator
 include("localenergy.jl")
@@ -39,7 +40,7 @@ include("kinetic-vqmc/state.jl")
 include("kinetic-vqmc/qmc.jl")
 include("kinetic-vqmc/wrapper.jl")
 
-# Not done yet.
+export gradient_descent, amsgrad
 include("amsgrad.jl")
 
 
