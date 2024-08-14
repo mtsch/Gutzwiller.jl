@@ -95,7 +95,7 @@ opt_lbgfs.minimizer, opt_lbgfs.minimum
 # Consider the following.
 
 p0 = [1.0]
-@time kinetic_vqmc(H, ansatz, p0; steps=1e2) #hide
+kinetic_vqmc(H, ansatz, p0; steps=1e2) #hide
 @time kinetic_vqmc(H, ansatz, p0; steps=1e2)
 
 #
@@ -168,19 +168,21 @@ end
 # sampling. Gutzwiller.jl provides `AnsatzSampling`, which is similar to
 # `GutzwillerSampling` from Rimu, but can be used with different ansatze.
 
-p = grad_result[end]
+p = grad_result.param[end]
 G = AnsatzSampling(H, ansatz, p)
 
 # This can now be used with FCIQMC. Let's compare the importance sampled time series to a
 # non-importance sampled one.
 
-prob_standard = ProjectorMonteCarloProblem(H; target_walkers=10, last_step=2000)
+using Random; Random.seed!(1337) #hide
+
+prob_standard = ProjectorMonteCarloProblem(H; target_walkers=15, last_step=2000)
 sim_standard = solve(prob_standard)
 shift_estimator(sim_standard; skip=1000)
 
 #
 
-prob_sampled = ProjectorMonteCarloProblem(G; target_walkers=10, last_step=2000)
+prob_sampled = ProjectorMonteCarloProblem(G; target_walkers=15, last_step=2000)
 sim_sampled = solve(prob_sampled)
 shift_estimator(sim_sampled; skip=1000)
 
