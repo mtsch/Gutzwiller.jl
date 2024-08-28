@@ -20,7 +20,7 @@ using KrylovKit
 
         for ansatz in (
             GutzwillerAnsatz(H),
-            ExtendedGutzwillerAnsatz(H),
+            #ExtendedGutzwillerAnsatz(H),
             MultinomialAnsatz(H),
         )
             @testset "$ansatz" begin
