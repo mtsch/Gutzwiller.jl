@@ -13,8 +13,6 @@ using SpecialFunctions
 using Tables
 using VectorInterface
 
-import Rimu.Hamiltonians.extended_hubbard_interaction as ebh
-
 export num_parameters, val_and_grad
 include("ansatz/abstract.jl")
 export VectorAnsatz

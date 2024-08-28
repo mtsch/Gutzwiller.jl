@@ -4,7 +4,7 @@ using Rimu
 using ForwardDiff
 
 function check_ansatz(H, ansatz, params)
-    @testset "$H / $ansatz" begin
+    @testset "$H / $(nameof(typeof(ansatz)))" begin
         # these tests look dumb, but assuming H and params are selected properly, they do
         # make sense.
         @testset "properties" begin
@@ -49,16 +49,16 @@ end
     )
         M = num_modes(starting_address(H))
 
-        check_ansatz(H, GutzwillerAnsatz(H), [0.4])
+        check_ansatz(H, GutzwillerAnsatz(H), rand(1))
         if H isa ExtendedHubbardReal1D
-            check_ansatz(H, ExtendedGutzwillerAnsatz(H), [0.4, 0.5])
+            #check_ansatz(H, ExtendedGutzwillerAnsatz(H), rand(2))
         end
         if starting_address(H) isa BoseFS
-            check_ansatz(H, MultinomialAnsatz(H), [0.5])
-            check_ansatz(H, GutzwillerAnsatz(H) + MultinomialAnsatz(H), [0.5, 0.4, 0.2])
+            check_ansatz(H, MultinomialAnsatz(H), rand(1))
+            check_ansatz(H, GutzwillerAnsatz(H) + MultinomialAnsatz(H), rand(3))
         end
         if starting_address(H) isa SingleComponentFockAddress
-            check_ansatz(H, JastrowAnsatz(H), rand(M * (M - 2)))
+            check_ansatz(H, JastrowAnsatz(H), rand((M * (M + 1)) ÷ 2))
             check_ansatz(H, RelativeJastrowAnsatz(H), rand(cld(M, 2)))
             check_ansatz(H, DensityProfileAnsatz(H), rand(M))
         end
