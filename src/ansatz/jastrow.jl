@@ -5,12 +5,12 @@ using Rimu.Hamiltonians: circshift_dot
     JastrowAnsatz(hamiltonian) <: AbstractAnsatz
 
 ```math
-J_i = exp(-∑_{k=1}^M ∑_{l=k}^M p_{k,l} n_k n_l)
+J(|f⟩; p) = exp(-∑_{k=1}^M ∑_{l=k}^M p_{k,l} ⟨f|n_k n_l|f⟩)
 ```
 
 With translationally invariant Hamiltonians, use [`RelativeJastrowAnsatz`](@ref) instead.
 """
-struct JastrowAnsatz{A,T,N,H} <: AbstractAnsatz{A,T,N}
+struct JastrowAnsatz{A,N,H} <: AbstractAnsatz{A,Float64,N}
     hamiltonian::H
 end
 
@@ -18,22 +18,21 @@ function JastrowAnsatz(hamiltonian)
     address = starting_address(hamiltonian)
     @assert address isa SingleComponentFockAddress
     N = num_modes(address) * (num_modes(address) + 1) ÷ 2
-    return JastrowAnsatz{typeof(address),Float64,N,typeof(hamiltonian)}(hamiltonian)
+    return JastrowAnsatz{typeof(address),N,typeof(hamiltonian)}(hamiltonian)
 end
 
 Rimu.build_basis(j::JastrowAnsatz) = build_basis(j.hamiltonian)
 
-function val_and_grad(j::JastrowAnsatz, addr, params)
+function val_and_grad(j::JastrowAnsatz{A,N}, addr::A, params) where {A,N}
     o = onr(addr)
     M = num_modes(addr)
 
     val = 0.0
-    grad = zeros(typeof(params))
+    grad = zeros(SVector{N,Float64})
 
     p = 0
-    for i in 1:M, j in i:M
+    @inbounds for i in 1:M, j in i:M
         p += 1
-
         onproduct = o[i] * o[j]
         local_val = params[p] * onproduct
         val += local_val
@@ -66,11 +65,11 @@ For a translationally invariant Hamiltonian, this is equivalent to [`JastrowAnsa
 but has fewer parameters.
 
 ```math
-R_i = exp(-∑_{d=0}^{M÷2} p_d ∑_{k=1}^{M} n_k n_{k + d})
+J(|f⟩; p) = exp(-∑_{d=0}^{M÷2} p_d ∑_{k=1}^{M} ⟨f|n_k n_{k + d}|f⟩)
 ```
 
 """
-struct RelativeJastrowAnsatz{A,T,N,H} <: AbstractAnsatz{A,T,N}
+struct RelativeJastrowAnsatz{A,N,H} <: AbstractAnsatz{A,Float64,N}
     hamiltonian::H
 end
 
@@ -78,7 +77,7 @@ function RelativeJastrowAnsatz(hamiltonian)
     address = starting_address(hamiltonian)
     @assert address isa SingleComponentFockAddress
     N = cld(num_modes(address), 2)
-    return RelativeJastrowAnsatz{typeof(address),Float64,N,typeof(hamiltonian)}(hamiltonian)
+    return RelativeJastrowAnsatz{typeof(address),N,typeof(hamiltonian)}(hamiltonian)
 end
 
 Rimu.build_basis(rj::RelativeJastrowAnsatz) = build_basis(rj.hamiltonian)
@@ -88,10 +87,8 @@ function val_and_grad(rj::RelativeJastrowAnsatz, addr, params)
     M = num_parameters(rj)
 
     products = ntuple(i -> circshift_dot(o, o, i - 1), Val(M))
-    val = sum(1:M) do i
-        params[i] * circshift_dot(o, o, i - 1)
-    end
-    val = exp(-val)
+    exponent = dot(params, products)
+    val = exp(-exponent)
     grad = -SVector{M,Float64}(products .* val)
 
     return val, grad

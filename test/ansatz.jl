@@ -14,7 +14,7 @@ function check_ansatz(H, ansatz, params)
         end
 
         @testset "val_and_grad" begin
-            addrs = rand(build_basis(H), 5)
+            addrs = [starting_address(H); rand(build_basis(H), 10)]
             for addr in addrs
                 val1 = ansatz(addr, params)
                 val2, grad1 = val_and_grad(ansatz, addr, params)
@@ -47,6 +47,8 @@ end
         HubbardMom1D(BoseFS(10, 5 => 3); u=4),
         HubbardRealSpace(FermiFS2C((1,0,0,1), (1,1,0,0)); geometry=PeriodicBoundaries(2,2)),
     )
+        M = num_modes(starting_address(H))
+
         check_ansatz(H, GutzwillerAnsatz(H), [0.4])
         if H isa ExtendedHubbardReal1D
             check_ansatz(H, ExtendedGutzwillerAnsatz(H), [0.4, 0.5])
@@ -55,6 +57,9 @@ end
             check_ansatz(H, MultinomialAnsatz(H), [0.5])
             check_ansatz(H, GutzwillerAnsatz(H) + MultinomialAnsatz(H), [0.5, 0.4, 0.2])
         end
+        check_ansatz(H, JastrowAnsatz(H), rand(M * (M - 2)))
+        check_ansatz(H, RelativeJastrowAnsatz(H), rand(cld(M, 2)))
+        check_ansatz(H, DensityProfileAnsatz(H), rand(M))
     end
 end
 

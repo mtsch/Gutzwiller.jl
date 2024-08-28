@@ -27,6 +27,8 @@ export MultinomialAnsatz
 include("ansatz/multinomial.jl")
 export JastrowAnsatz, RelativeJastrowAnsatz
 include("ansatz/jastrow.jl")
+export DensityProfileAnsatz
+include("ansatz/densityprofile.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
 
