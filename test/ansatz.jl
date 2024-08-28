@@ -57,9 +57,11 @@ end
             check_ansatz(H, MultinomialAnsatz(H), [0.5])
             check_ansatz(H, GutzwillerAnsatz(H) + MultinomialAnsatz(H), [0.5, 0.4, 0.2])
         end
-        check_ansatz(H, JastrowAnsatz(H), rand(M * (M - 2)))
-        check_ansatz(H, RelativeJastrowAnsatz(H), rand(cld(M, 2)))
-        check_ansatz(H, DensityProfileAnsatz(H), rand(M))
+        if starting_address(H) isa SingleComponentFockAddress
+            check_ansatz(H, JastrowAnsatz(H), rand(M * (M - 2)))
+            check_ansatz(H, RelativeJastrowAnsatz(H), rand(cld(M, 2)))
+            check_ansatz(H, DensityProfileAnsatz(H), rand(M))
+        end
     end
 end
 
