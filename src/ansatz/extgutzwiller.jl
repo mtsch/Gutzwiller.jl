@@ -1,5 +1,3 @@
-using Rimu.Hamiltonians: extended_hubbard_interaction
-
 """
     ExtendedGutzwillerAnsatz(hamiltonian) <: AbstractAnsatz
 
@@ -26,17 +24,17 @@ Rimu.build_basis(gv::ExtendedGutzwillerAnsatz) = build_basis(gv.hamiltonian)
 
 function val_and_grad(gv::ExtendedGutzwillerAnsatz, addr, params)
     g1, g2 = params
-    ebh_interaction, diag = extended_hubbard_interaction(addr)
+    ebh_interaction, diag = Rimu.Hamiltonians.extended_hubbard_interaction(addr)
 
-    val = exp(-g1 * diag + -g2 * extended_hubbard_interaction_interaction)
+    val = exp(-g1 * diag + -g2 * Rimu.Hamiltonians.extended_hubbard_interaction_interaction)
     der_g1 = -diag * val
-    der_g2 = -extended_hubbard_interaction_interaction * val
+    der_g2 = -Rimu.Hamiltonians.extended_hubbard_interaction_interaction * val
 
     return val, SVector(der_g1, der_g2)
 end
 
 function (gv::ExtendedGutzwillerAnsatz)(addr, params)
     g1,g2 = params
-    ebh_int, bh_int = extended_hubbard_interaction(addr)
+    ebh_int, bh_int = Rimu.Hamiltonians.extended_hubbard_interaction(addr)
     return exp(-g1 * bh_int + -g2 * ebh_int)
 end
