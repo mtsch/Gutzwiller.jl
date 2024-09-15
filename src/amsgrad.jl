@@ -83,16 +83,33 @@ end
 function adaptive_gradient_descent(
     φ, ψ, f, p_init::P;
     maxiter=100, verbose=true, α=0.01,
+    first_moment_init=nothing,
+    second_moment_init=nothing,
+    fix_params=nothing,
     grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
     kwargs...
 ) where {N,T,P<:SVector{N,T}}
 
-    first_moment = zeros(SVector{N,T})
-    second_moment = zeros(SVector{N,T})
+    # not_fixed will be used to set gradient at those parameters to zero
+    if isnothing(fix_params)
+        not_fixed = @SVector fill(true, N)
+    else
+        not_fixed = .!SVector{N,Bool}(fix_params)
+    end
 
     val, grad = val_and_grad(f, p_init)
-    first_moment = grad
     old_val = Inf
+
+    if isnothing(first_moment_init)
+        first_moment = grad
+    else
+        first_moment = SVector{N,T}(first_moment_init)
+    end
+    if isnothing(second_moment_init)
+        second_moment = zeros(SVector{N,T})
+    else
+        second_moment = SVector{N,T}(second_moment_init)
+    end
 
     iter = 0
 
@@ -114,8 +131,9 @@ function adaptive_gradient_descent(
         val, grad = val_and_grad(f, p)
         first_moment = φ(first_moment, grad; kwargs...)
         second_moment = ψ(second_moment, grad; kwargs...)
+        grad = grad .* not_fixed
 
-        δp = -α * first_moment ./ .√second_moment
+        δp = not_fixed .* -(α * first_moment ./ .√second_moment)
         δval = old_val - val
         old_val = val
 
