@@ -80,6 +80,17 @@ function adaptive_gradient_descent(φ, ψ, f, params; kwargs...)
     params_svec = SVector{length(params)}(params)
     return adaptive_gradient_descent(φ, ψ, f, params_svec; kwargs...)
 end
+function adaptive_gradient_descent(φ, ψ, f, prev::GradientDescentResult; kwargs...)
+    if f ≢ prev.fun
+        throw(ArgumentError("can only do continuations with the same function!"))
+    end
+    return adaptive_gradient_descent(
+        φ, ψ, f, prev.param[end];
+        first_moment_init=prev.first_moment[end],
+        second_moment_init=prev.second_moment[end],
+        kwargs...
+    )
+end
 function adaptive_gradient_descent(
     φ, ψ, f, p_init::P;
     maxiter=100, verbose=true, α=0.01,

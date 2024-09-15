@@ -67,9 +67,11 @@ end
         le, trace2a.param[end];
         maxiter=50,
     )
+    trace2d = amsgrad(le, trace2a; maxiter=50)
 
     # trace2b continues stably with small deviations, while trace2c wobbles violently at the
     # beginning
     @test trace1.param ≈ [trace2a.param[1:end-1]; trace2b.param] atol=1e-2
     @test trace1.param ≉ [trace2a.param[1:end-1]; trace2c.param] atol=1e-2
+    @test trace2b.param == trace2d.param
 end
