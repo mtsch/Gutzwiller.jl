@@ -116,7 +116,7 @@ begin
     fig
 end
 ````
-![](README-21.png)
+![](docs/README-21.png)
 
 To find the minimum, pass `le` to `optimize` from Optim.jl
 
@@ -399,7 +399,7 @@ begin
     fig
 end
 ````
-![](README-41.png)
+![](docs/README-41.png)
 
 We see from the plot that the value of the energy is fluctiating around what appears to be
 the minimum. While the parameter estimate here is probably good enough for importance
@@ -436,7 +436,7 @@ begin
     fig
 end
 ````
-![](README-45.png)
+![](docs/README-45.png)
 
 ### Importance sampling
 
