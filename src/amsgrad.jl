@@ -67,23 +67,43 @@ end
 
 """
     adaptive_gradient_descent(
-        φ, ψ, f, p_init::P;
+        φ, ψ, f, p_init;
         maxiter=100, verbose=true, α=0.01,
         grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
+        first_moment_init, second_moment_init, fix_params,
         kwargs...
     )
 
 For immediately useful versions of this function, see [`gradient_descent`] and [`amsgrad`].
 Returns [`GradientDescentResult`](@ref).
+
+## Arguments
+
+- `φ`, `ψ`: functions for updatin the first and second moment. These are set by the caller
+  ([`gradient_descent`] and [`amsgrad`]).
+- `f`: the function to be optimized. Must be callable with parameters of the same shape as
+  `p_init`.
+- `p_init`: initial parameter estimate. Alternatively, a [`GradientDescentResult`](@ref) may
+  be passed which will continue the optimization where the previous computation stopped.
+
+## Keyword arguments
+
+- `maxiter`: maximum iterations performed before stopping.
+- `verbose`: set to `false` to disable printing.
+- `α`: the learning rate. Larger values converge faster, but are less stable.
+- `grad_tol`, `param_tol`, `val_tol`: stop if gradient, paramters, or objective function
+  value change less than this amount in a step.
+- `first_moment_init`: initial value for the first moment. Defaults to the gradient of `f`
+  at `p_init`.
+- `second_moment_init`: initial value for the second moment. Defaults to a vector of zeros.
+- `fix_params`: a vector or tuple of booleans. If `fix_params[i]` is `true`, the `i`-th
+  parameter will be kept at its initial value.
 """
 function adaptive_gradient_descent(φ, ψ, f, params; kwargs...)
     params_svec = SVector{length(params)}(params)
     return adaptive_gradient_descent(φ, ψ, f, params_svec; kwargs...)
 end
 function adaptive_gradient_descent(φ, ψ, f, prev::GradientDescentResult; kwargs...)
-    if f ≢ prev.fun
-        throw(ArgumentError("can only do continuations with the same function!"))
-    end
     return adaptive_gradient_descent(
         φ, ψ, f, prev.param[end];
         first_moment_init=prev.first_moment[end],
@@ -199,7 +219,8 @@ end
 
 Vanilla gradient descent on function `f` with initial parameters `p0`.
 
-See also [`adaptive_gradient_descent`](@ref). Returns [`GradientDescentResult`](@ref).
+See [`adaptive_gradient_descent`](@ref) for descriptions of keyword arguments.
+Returns [`GradientDescentResult`](@ref).
 """
 function gradient_descent(f, params; kwargs...)
     φ(m1, g; _...) = g
@@ -215,9 +236,10 @@ end
     )
 
 [AMSGrad](https://paperswithcode.com/method/amsgrad) on function `f` with initial parameters
-`p0`.
+`p0`. `α`, `β1`, and `β2` are the parameters controlling AMSGrad.
 
-See also [`adaptive_gradient_descent`](@ref). Returns [`GradientDescentResult`](@ref).
+See [`adaptive_gradient_descent`](@ref) for descriptions of other keyword arguments.
+Returns [`GradientDescentResult`](@ref).
 """
 function amsgrad(f, params; β1=0.1, β2=0.01, kwargs...)
     φ(m1, g; β1, _...) = (1 - β1) * m1 + β1 * g
