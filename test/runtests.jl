@@ -7,7 +7,7 @@ using Random
 using StatsBase
 using Test
 
-@testset "resampling" begin
+@testset "time series resampling" begin
     times = rand(100)
     vals = rand(100)
 
@@ -21,3 +21,4 @@ end
 include("ansatz.jl")
 include("qmc.jl")
 include("sampling.jl")
+include("amsgrad.jl")
