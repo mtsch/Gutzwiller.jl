@@ -1,4 +1,7 @@
 # # Gutzwiller
+#
+# [![Coverage Status](https://coveralls.io/repos/github/mtsch/Gutzwiller.jl/badge.svg?branch=master)](https://coveralls.io/github/mtsch/Gutzwiller.jl?branch=master)
+#
 # _importance sampling and variational Monte Carlo for
 # [Rimu.jl](https://github.com/joachimbrand/Rimu.jl)_
 #
@@ -143,10 +146,12 @@ end
 # We see from the plot that the value of the energy is fluctiating around what appears to be
 # the minimum. While the parameter estimate here is probably good enough for importance
 # sampling, we can refine the result by creating a new `KineticVQMC` structure with
-# increased samples and use it to refine the result.
+# increased samples and use it to refine the result. Here, we can pass the previous result
+# `grad_result` in place of the initial parameters, which will continue the computation
+# where the previous one left off. Alternatively, this can be achieved by passing the `first_moment_init` and `second_moment_init` arguments to `amsgrad`.
 
 qmc2 = KineticVQMC(H, ansatz; samples=1e6)
-grad_result2 = amsgrad(qmc2, grad_result.param[end])
+grad_result2 = amsgrad(qmc2, grad_result)
 
 # Now, let's plot the refined result next to the minimum found by Optim.jl
 

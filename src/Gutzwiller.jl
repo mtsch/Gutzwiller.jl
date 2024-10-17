@@ -13,8 +13,6 @@ using SpecialFunctions
 using Tables
 using VectorInterface
 
-import Rimu.Hamiltonians.extended_hubbard_interaction as ebh
-
 export num_parameters, val_and_grad
 include("ansatz/abstract.jl")
 export VectorAnsatz
@@ -27,6 +25,8 @@ export MultinomialAnsatz
 include("ansatz/multinomial.jl")
 export JastrowAnsatz, RelativeJastrowAnsatz
 include("ansatz/jastrow.jl")
+export DensityProfileAnsatz
+include("ansatz/densityprofile.jl")
 export ExtendedAnsatz
 include("ansatz/combination.jl")
 
