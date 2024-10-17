@@ -50,3 +50,13 @@ val_and_grad
 function val_and_grad(a::AbstractAnsatz{K,<:Any,0}, addr::K, _) where {K}
     return a(addr, SVector{0,valtype(a)}()), SVector{0,valtype(a)}()
 end
+
+"""
+    val_err_and_grad(args...)
+
+Return the value, its error and gradient. See [`val_and_grad`](@ref).
+"""
+function val_err_and_grad(args...)
+    val, grad = val_and_grad(args...)
+    return val, zero(typeof(val)), grad
+end

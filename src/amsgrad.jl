@@ -17,6 +17,7 @@ struct GradientDescentResult{T,P<:SVector{<:Any,T},F}
 
     param::Vector{P}
     value::Vector{T}
+    error::Vector{T}
     gradient::Vector{P}
     first_moment::Vector{P}
     second_moment::Vector{P}
@@ -27,7 +28,7 @@ function Base.show(io::IO, r::GradientDescentResult)
     println(io, "GradientDescentResult")
     println(io, "  iterations: ", r.iterations)
     println(io, "  converged: ", r.converged, " (", r.reason, ")")
-    println(io, "  last value: ", r.value[end])
+    println(io, "  last value: ", r.value[end], " ± ", r.error[end])
     print(io, "  last params: ", r.param[end])
 end
 
@@ -39,9 +40,9 @@ function Tables.Schema(r::GradientDescentResult{T,P}) where {T,P}
     hyper_types = typeof.(value.(r.hyperparameters))
 
     return Tables.Schema(
-        (hyper_keys..., :iter, :param, :value, :gradient,
+        (hyper_keys..., :iter, :param, :value, :error, :gradient,
          :first_moment, :second_moment, :param_delta),
-        (hyper_types..., Int, Int, P, T, P, P, P, P)
+        (hyper_types..., Int, Int, P, T, T, P, P, P, P)
     )
 end
 
@@ -55,6 +56,7 @@ function Base.getindex(rows::GradientDescentResultRows, i)
             iter=i,
             param=r.param[i],
             value=r.value[i],
+            error=r.error[i],
             gradient=r.gradient[i],
             first_moment=r.first_moment[i],
             second_moment=r.second_moment[i],
@@ -98,6 +100,7 @@ function adaptive_gradient_descent(
 
     params = P[]
     values = T[]
+    errors = T[]
     gradients = P[]
     first_moments = P[]
     second_moments = P[]
@@ -111,7 +114,7 @@ function adaptive_gradient_descent(
 
     while iter ≤ maxiter
         iter += 1
-        val, grad = val_and_grad(f, p)
+        val, err, grad = val_err_and_grad(f, p)
         first_moment = φ(first_moment, grad; kwargs...)
         second_moment = ψ(second_moment, grad; kwargs...)
 
@@ -121,6 +124,7 @@ function adaptive_gradient_descent(
 
         push!(params, p)
         push!(values, val)
+        push!(errors, err)
         push!(gradients, grad)
         push!(first_moments, first_moment)
         push!(second_moments, second_moment)
@@ -157,7 +161,7 @@ function adaptive_gradient_descent(
 
     return GradientDescentResult(
         f, (; α, kwargs...), p_init, length(params), converged, reason,
-        params, values, gradients, first_moments, second_moments, param_deltas,
+        params, values, errors, gradients, first_moments, second_moments, param_deltas,
     )
 end
 

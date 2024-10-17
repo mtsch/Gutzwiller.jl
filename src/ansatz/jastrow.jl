@@ -5,7 +5,7 @@ using Rimu.Hamiltonians: circshift_dot
     JastrowAnsatz(hamiltonian) <: AbstractAnsatz
 
 ```math
-J_i = exp(-∑_{k=1}^M ∑_{l=k}^M p_{k,l} n_k n_l)
+J(|f⟩; 𝐩) = exp(-∑_{k=1}^M ∑_{l=k}^M p_{k,l} ⟨f| n_k n_l |f⟩)
 ```
 
 With translationally invariant Hamiltonians, use [`RelativeJastrowAnsatz`](@ref) instead.
@@ -66,9 +66,8 @@ For a translationally invariant Hamiltonian, this is equivalent to [`JastrowAnsa
 but has fewer parameters.
 
 ```math
-R_i = exp(-∑_{d=0}^{M÷2} p_d ∑_{k=1}^{M} n_k n_{k + d})
+R(|f⟩; 𝐩) = exp(-∑_{d=0}^{M/2} p_d ∑_{k=1}^M ⟨f| n_k n_{k + d} |f⟩)
 ```
-
 """
 struct RelativeJastrowAnsatz{A,T,N,H} <: AbstractAnsatz{A,T,N}
     hamiltonian::H

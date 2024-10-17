@@ -89,6 +89,11 @@ function val_and_grad(ke::KineticVQMC, params)
     res = kinetic_vqmc!(ke.result; steps=ke.steps)
     return val_and_grad(res)
 end
+function val_err_and_grad(ke::KineticVQMC, params)
+    _reset!(ke, params)
+    res = kinetic_vqmc!(ke.result; steps=ke.steps)
+    return val_err_and_grad(res)
+end
 
 function (ke::KineticVQMC)(F, G, params)
     _reset!(ke, params)
