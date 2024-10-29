@@ -34,7 +34,6 @@ function Base.empty!(st::KineticVQMCWalkerState)
     empty!(st.residence_times)
     empty!(st.local_energies)
     empty!(st.addresses)
-    curr_address = starting_address(st.hamiltonian)
     return st
 end
 function Base.length(st::KineticVQMCWalkerState)

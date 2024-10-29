@@ -78,20 +78,29 @@ function _reset!(ke::KineticVQMC{N,T}, params) where {N,T}
     end
 end
 
-function (ke::KineticVQMC)(params)
+function (ke::KineticVQMC)(
+    params;
+    samples=ke.steps * ke.walkers, steps=samples ÷ ke.walkers,
+)
     _reset!(ke, params)
-    res = kinetic_vqmc!(ke.result; steps=ke.steps)
+    res = kinetic_vqmc!(ke.result; steps)
     return mean(res)
 end
 
-function val_and_grad(ke::KineticVQMC, params)
+function val_and_grad(
+    ke::KineticVQMC, params;
+    samples=ke.steps * ke.walkers, steps=samples ÷ ke.walkers,
+)
     _reset!(ke, params)
-    res = kinetic_vqmc!(ke.result; steps=ke.steps)
+    res = kinetic_vqmc!(ke.result; steps)
     return val_and_grad(res)
 end
-function val_err_and_grad(ke::KineticVQMC, params)
+function val_err_and_grad(
+    ke::KineticVQMC, params;
+    samples=ke.steps * ke.walkers, steps=samples ÷ ke.walkers,
+)
     _reset!(ke, params)
-    res = kinetic_vqmc!(ke.result; steps=ke.steps)
+    res = kinetic_vqmc!(ke.result; steps)
     return val_err_and_grad(res)
 end
 
