@@ -4,7 +4,7 @@
 The Gutzwiller ansatz:
 
 ```math
-G_i = exp(-g H_{i,i}),
+G(|f⟩; g) = exp(-g ⟨f|H|f⟩),
 ```
 
 where ``H`` is the `hamiltonian` passed to the struct.

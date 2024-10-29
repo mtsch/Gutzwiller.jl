@@ -17,6 +17,7 @@ struct GradientDescentResult{T,P<:SVector{<:Any,T},F}
 
     param::Vector{P}
     value::Vector{T}
+    error::Vector{T}
     gradient::Vector{P}
     first_moment::Vector{P}
     second_moment::Vector{P}
@@ -27,7 +28,7 @@ function Base.show(io::IO, r::GradientDescentResult)
     println(io, "GradientDescentResult")
     println(io, "  iterations: ", r.iterations)
     println(io, "  converged: ", r.converged, " (", r.reason, ")")
-    println(io, "  last value: ", r.value[end])
+    println(io, "  last value: ", r.value[end], " ± ", r.error[end])
     print(io, "  last params: ", r.param[end])
 end
 
@@ -39,9 +40,9 @@ function Tables.Schema(r::GradientDescentResult{T,P}) where {T,P}
     hyper_types = typeof.(value.(r.hyperparameters))
 
     return Tables.Schema(
-        (hyper_keys..., :iter, :param, :value, :gradient,
+        (hyper_keys..., :iter, :param, :value, :error, :gradient,
          :first_moment, :second_moment, :param_delta),
-        (hyper_types..., Int, Int, P, T, P, P, P, P)
+        (hyper_types..., Int, Int, P, T, T, P, P, P, P)
     )
 end
 
@@ -55,6 +56,7 @@ function Base.getindex(rows::GradientDescentResultRows, i)
             iter=i,
             param=r.param[i],
             value=r.value[i],
+            error=r.error[i],
             gradient=r.gradient[i],
             first_moment=r.first_moment[i],
             second_moment=r.second_moment[i],
@@ -69,6 +71,7 @@ end
     adaptive_gradient_descent(
         φ, ψ, f, p_init;
         maxiter=100, verbose=true, α=0.01,
+        early_stop=true,
         grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
         first_moment_init, second_moment_init, fix_params,
         kwargs...
@@ -117,7 +120,9 @@ function adaptive_gradient_descent(
     first_moment_init=nothing,
     second_moment_init=nothing,
     fix_params=nothing,
-    grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)),
+    early_stop=true,
+    grad_tol=√eps(T), param_tol=√eps(T), val_tol=√(eps(T)), err_tol=0.0,
+    fkwargs=(;),
     kwargs...
 ) where {N,T,P<:SVector{N,T}}
 
@@ -128,7 +133,7 @@ function adaptive_gradient_descent(
         not_fixed = .!SVector{N,Bool}(fix_params)
     end
 
-    val, grad = val_and_grad(f, p_init)
+    val, grad = val_and_grad(f, p_init; fkwargs...)
     old_val = Inf
 
     if isnothing(first_moment_init)
@@ -146,6 +151,7 @@ function adaptive_gradient_descent(
 
     params = P[]
     values = T[]
+    errors = T[]
     gradients = P[]
     first_moments = P[]
     second_moments = P[]
@@ -159,7 +165,7 @@ function adaptive_gradient_descent(
 
     while iter ≤ maxiter
         iter += 1
-        val, grad = val_and_grad(f, p)
+        val, err, grad = val_err_and_grad(f, p; fkwargs...)
         first_moment = φ(first_moment, grad; kwargs...)
         second_moment = ψ(second_moment, grad; kwargs...)
         grad = grad .* not_fixed
@@ -170,34 +176,43 @@ function adaptive_gradient_descent(
 
         push!(params, p)
         push!(values, val)
+        push!(errors, err)
         push!(gradients, grad)
         push!(first_moments, first_moment)
         push!(second_moments, second_moment)
         push!(param_deltas, δp)
 
-        if norm(δp) < param_tol
-            verbose && @info "Converged (params)"
-            reason = "params"
-            converged = true
-            break
-        end
-        if norm(grad) < grad_tol
-            verbose && @info "Converged (grad)"
-            reason = "gradient"
-            converged = true
-            break
-        end
-        if abs(δval) < val_tol
-            verbose && @info "Converged (value)"
-            reason = "value"
-            converged = true
-            break
+        if early_stop
+            if norm(δp) < param_tol
+                verbose && @info "Converged after $iter iterations (params)"
+                reason = "params"
+                converged = true
+                break
+            end
+            if norm(grad) < grad_tol
+                verbose && @info "Converged after $iter iterations (grad)"
+                reason = "gradient"
+                converged = true
+                break
+            end
+            if abs(δval) < val_tol
+                verbose && @info "Converged after $iter iterations (value)"
+                reason = "value"
+                converged = true
+                break
+            end
+            if abs(δval) < err * err_tol
+                verbose && @info "Converged after $iter iterations (errorbars)"
+                reason = "errorbars"
+                converged = true
+                break
+            end
         end
 
         p = p + δp
 
         verbose && next!(
-            prog; showvalues=(((:iter, iter), (:value, val), (:param, p)))
+            prog; showvalues=(((:iter, iter), (:value, val ± err), (:param, p)))
         )
     end
     iter == maxiter && verbose && @info "Aborted (maxiter)"
@@ -206,7 +221,7 @@ function adaptive_gradient_descent(
 
     return GradientDescentResult(
         f, (; α, kwargs...), p_init, length(params), converged, reason,
-        params, values, gradients, first_moments, second_moments, param_deltas,
+        params, values, errors, gradients, first_moments, second_moments, param_deltas,
     )
 end
 

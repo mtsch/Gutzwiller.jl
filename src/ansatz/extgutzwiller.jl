@@ -4,7 +4,7 @@
 The Extended Gutzwiller ansatz:
 
 ```math
-G_i = exp(-g_1 H_{i,i}) exp(-g_2 \\sum_{<i,j>} n_i n_j ),
+G(|f⟩; 𝐠) = exp(-g_1 ⟨f|H|f⟩ - g_2 ⟨f| ∑_{<i,j>} n_i n_j |f⟩),
 ```
 
 where ``H`` is an ExtendedHubbardReal1D Hamiltonian. The additional term accounts for the strength of nearest-neighbour interactions.

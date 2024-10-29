@@ -34,7 +34,6 @@ function Base.empty!(st::KineticVQMCWalkerState)
     empty!(st.residence_times)
     empty!(st.local_energies)
     empty!(st.addresses)
-    curr_address = starting_address(st.hamiltonian)
     return st
 end
 function Base.length(st::KineticVQMCWalkerState)
@@ -43,10 +42,21 @@ end
 function val_and_grad(res::KineticVQMCWalkerState)
     weights = FrequencyWeights(res.residence_times)
     val = mean(res.local_energies, weights)
-    grads = res.grad_ratios .* (res.local_energies .- val)# ./ weights
+    grads = res.grad_ratios .* (res.local_energies .- val)
     grad = 2 * mean(grads, weights)
 
     return val, grad
+end
+function val_err_and_grad(res::KineticVQMCWalkerState)
+    weights = FrequencyWeights(res.residence_times)
+
+    b_res = blocking_analysis(resample(res.residence_times, res.local_energies))
+    val = b_res.mean
+    err = b_res.err
+
+    grads = res.grad_ratios .* (res.local_energies .- val)
+    grad = 2 * mean(grads, weights)
+    return val, err, grad
 end
 
 
@@ -136,6 +146,21 @@ function val_and_grad(res::KineticVQMCResult{<:Any,T}) where {T}
     end
 
     return vals / walkers, grads ./ walkers
+end
+function val_err_and_grad(res::KineticVQMCResult{<:Any,T}) where {T}
+    vals = zero(T)
+    errs = zero(T)
+    grads = zero(eltype(res.states[1].grad_ratios))
+    walkers = length(res.states)
+
+    for w in 1:walkers
+        v, e, g = val_err_and_grad(res.states[w])
+        errs += e^2
+        vals += v
+        grads += g
+    end
+
+    return vals / walkers, √mean(errs) / walkers, grads ./ walkers
 end
 
 """
