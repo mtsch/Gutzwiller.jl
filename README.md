@@ -1,16 +1,16 @@
 # Gutzwiller
 
-[![Coverage Status](https://coveralls.io/repos/github/mtsch/Gutzwiller.jl/badge.svg?branch=master)](https://coveralls.io/github/mtsch/Gutzwiller.jl?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/RimuQMC/Gutzwiller.jl/badge.svg?branch=master)](https://coveralls.io/github/RimuQMC/Gutzwiller.jl?branch=master)
 
 _importance sampling and variational Monte Carlo for
-[Rimu.jl](https://github.com/joachimbrand/Rimu.jl)_
+[Rimu.jl](https://github.com/RimuQMC/Rimu.jl)_
 
 ## Installation
 
 Gutzwiller.jl is not yet registered. To install it, run
 
 ```julia
-import Pkg; Pkg.add("https://github.com/mtsch/Gutzwiller.jl")
+import Pkg; Pkg.add("https://github.com/RimuQMC/Gutzwiller.jl")
 ```
 
 ## Usage guide
